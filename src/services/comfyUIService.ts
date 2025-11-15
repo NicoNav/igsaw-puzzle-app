@@ -193,8 +193,8 @@ export class ComfyUIService {
 
 // Default instance with common configuration
 export const createComfyUIService = (
-  baseUrl: string = 'http://localhost:8188',
-  wsUrl: string = 'ws://localhost:8188/ws',
+  baseUrl: string = 'http://10.0.0.77:8188',
+  wsUrl: string = 'ws://10.0.0.77:8188/ws',
 ): ComfyUIService => {
   return new ComfyUIService({ baseUrl, wsUrl })
 }

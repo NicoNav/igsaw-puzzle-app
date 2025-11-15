@@ -15,9 +15,9 @@ export const config = {
   },
   comfyui: {
     // Base URL for ComfyUI API
-    baseUrl: import.meta.env.VITE_COMFYUI_URL || 'http://localhost:8188',
+    baseUrl: import.meta.env.VITE_COMFYUI_URL || 'http://10.0.0.77:8188',
     // WebSocket URL for real-time updates
-    wsUrl: import.meta.env.VITE_COMFYUI_WS || 'ws://localhost:8188/ws',
+    wsUrl: import.meta.env.VITE_COMFYUI_WS || 'ws://10.0.0.77:8188/ws',
   },
 }
 
