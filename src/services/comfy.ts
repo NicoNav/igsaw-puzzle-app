@@ -16,8 +16,8 @@ function safeUUID(): string {
     if (c?.getRandomValues) {
       const b = new Uint8Array(16)
       c.getRandomValues(b)
-      b[6] = (b[6] & 0x0f) | 0x40
-      b[8] = (b[8] & 0x3f) | 0x80
+      b[6]! = (b[6]! & 0x0f) | 0x40
+      b[8]! = (b[8]! & 0x3f) | 0x80
       const h = Array.from(b, x => x.toString(16).padStart(2, '0')).join('')
       return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`
     }
@@ -28,10 +28,6 @@ function safeUUID(): string {
 
 // Use this everywhere you need a client id
 const clientId = safeUUID()
-
-
-const BASE = '/comfy' 
-
 
 async function postJSON<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${BASE_HTTP}${path}`, {
@@ -56,7 +52,7 @@ export async function waitUntilFinishedWS(promptId: string, onNode?: (nodeId: st
   const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/comfy/ws?clientId=${encodeURIComponent(clientId)}`)
   await new Promise<void>((resolve, reject) => {
     ws.onopen = () => resolve()
-    ws.onerror = reject as any
+    ws.onerror = (err) => reject(err)
   })
   const done = await new Promise<void>((resolve) => {
     ws.onmessage = (ev) => {
@@ -79,10 +75,10 @@ export async function waitUntilFinishedWS(promptId: string, onNode?: (nodeId: st
 export async function runPromptAndStreamImages(
   payload: unknown,
   options: {
-    captureNodeId?: string,         // default: 'save_image_websocket_node'
-    onEvent?: (evt: any) => void,   // receives parsed JSON execution events
-    onError?: (err: any) => void,
-  } = {}
+    captureNodeId?: string // default: 'save_image_websocket_node'
+    onEvent?: (evt: unknown) => void // receives parsed JSON execution events
+    onError?: (err: unknown) => void
+  } = {},
 ): Promise<{ promptId: string; imageUrls: string[] }> {
   const captureId = options.captureNodeId ?? 'save_image_websocket_node'
   const { prompt_id } = await queuePromptWS(payload)
@@ -119,7 +115,7 @@ export async function runPromptAndStreamImages(
               }
             }
           }
-        } catch (err) {
+        } catch {
           // ignore malformed event
         }
         return
@@ -201,10 +197,16 @@ export async function waitForOutputs(promptId: string, { pollMs = 1500, timeoutM
 }
 
 /** Build /view URLs for files saved to disk (images/videos). */
-export function buildAssetUrls(outputs: Record<string, any>) {
-  const assets: { type: 'image' | 'video' | 'other', url: string, node: string, filename: string }[] = []
+export function buildAssetUrls(outputs: Record<string, unknown>) {
+  const assets: {
+    type: 'image' | 'video' | 'other'
+    url: string
+    node: string
+    filename: string
+  }[] = []
   for (const [node, out] of Object.entries(outputs)) {
-    const files = out?.images ?? []
+    const output = out as { images?: Array<{ filename: string; subfolder?: string; type?: string }> }
+    const files = output?.images ?? []
     for (const f of files) {
       const url = `${BASE_HTTP}/view?filename=${encodeURIComponent(f.filename)}&subfolder=${encodeURIComponent(f.subfolder || '')}&type=${encodeURIComponent(f.type || 'output')}`
       const lower = f.filename.toLowerCase()
@@ -255,9 +257,9 @@ export async function runSdxlWithPrompts(prompts: string[], { waitForOutputs: wa
       await waitUntilFinishedWS(r.promptId)
       const outs = await waitForOutputs(r.promptId, { pollMs, timeoutMs })
       r.assets = buildAssetUrls(outs)
-    } catch (err) {
+    } catch {
       // attach empty assets on failure
-      r.assets = [] as any
+      r.assets = []
     }
   }
 

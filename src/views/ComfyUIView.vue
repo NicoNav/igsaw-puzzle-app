@@ -4,28 +4,12 @@ import { useComfyUIStore } from '@/stores/comfyui'
 
 const comfyUIStore = useComfyUIStore()
 const promptText = ref('')
+const negativePromptText = ref('')
 const uploadedFile = ref<File | null>(null)
+const uploadedFilename = ref<string>('')
 const fileInput = ref<HTMLInputElement | null>(null)
-
-// Example workflow prompt structure for ComfyUI
-// This is a simplified example - actual workflows can be much more complex
-const examplePrompt = {
-  '3': {
-    inputs: {
-      seed: Math.floor(Math.random() * 1000000),
-      steps: 20,
-      cfg: 8,
-      sampler_name: 'euler',
-      scheduler: 'normal',
-      denoise: 1,
-      model: ['4', 0],
-      positive: ['6', 0],
-      negative: ['7', 0],
-      latent_image: ['5', 0],
-    },
-    class_type: 'KSampler',
-  },
-}
+const seed = ref<number>(Math.floor(Math.random() * 1000000))
+const steps = ref<number>(4)
 
 onMounted(async () => {
   await comfyUIStore.checkConnection()
@@ -44,10 +28,12 @@ const uploadImage = async () => {
 
   try {
     const result = await comfyUIStore.uploadImage(uploadedFile.value)
+    uploadedFilename.value = result.filename
     console.log('Image uploaded:', result)
-    alert('Image uploaded successfully!')
+    alert(`Image uploaded successfully as: ${result.filename}`)
   } catch (error) {
     console.error('Failed to upload image:', error)
+    alert('Failed to upload image')
   }
 }
 
@@ -57,30 +43,24 @@ const generateImage = async () => {
     return
   }
 
+  if (!uploadedFilename.value) {
+    alert('Please upload an image first')
+    return
+  }
+
   try {
-    // This is a simplified example - you would typically have a more complete workflow
-    const prompt = {
-      ...examplePrompt,
-      // Add your prompt text to the workflow
-      '6': {
-        inputs: {
-          text: promptText.value,
-          clip: ['4', 1],
-        },
-        class_type: 'CLIPTextEncode',
-      },
-    }
-
-    const result = await comfyUIStore.queuePrompt(prompt)
-    console.log('Prompt queued:', result)
-
-    // Poll for completion
-    setTimeout(async () => {
-      const history = await comfyUIStore.getHistory(result.prompt_id)
-      console.log('History:', history)
-    }, 5000)
+    const result = await comfyUIStore.runQwenImageEdit({
+      imageFilename: uploadedFilename.value,
+      positivePrompt: promptText.value,
+      negativePrompt: negativePromptText.value || undefined,
+      seed: seed.value,
+      steps: steps.value,
+    })
+    console.log('Generation complete:', result)
+    alert(`Generated ${result.images.length} image(s)!`)
   } catch (error) {
     console.error('Failed to generate image:', error)
+    alert('Failed to generate image')
   }
 }
 
@@ -90,6 +70,10 @@ const interruptGeneration = async () => {
 
 const clearImages = () => {
   comfyUIStore.clearGeneratedImages()
+}
+
+const randomizeSeed = () => {
+  seed.value = Math.floor(Math.random() * 10000000)
 }
 </script>
 
@@ -122,21 +106,66 @@ const clearImages = () => {
         <button @click="uploadImage" :disabled="!uploadedFile || !comfyUIStore.isConnected">
           Upload to ComfyUI
         </button>
+        <p v-if="uploadedFilename" class="success-message">
+          ✓ Uploaded: {{ uploadedFilename }}
+        </p>
       </div>
 
       <div class="section">
-        <h2>Generate Image</h2>
+        <h2>Generate Image with Qwen Edit</h2>
+        
+        <label>Positive Prompt (what you want):</label>
         <textarea
           v-model="promptText"
-          placeholder="Enter your prompt for image generation..."
+          placeholder="Enter your prompt for what to generate/edit..."
           :disabled="!comfyUIStore.isConnected"
+          rows="3"
         ></textarea>
+
+        <label>Negative Prompt (what to avoid - optional):</label>
+        <textarea
+          v-model="negativePromptText"
+          placeholder="Enter what you want to avoid (optional)..."
+          :disabled="!comfyUIStore.isConnected"
+          rows="2"
+        ></textarea>
+
+        <div class="param-row">
+          <div class="param">
+            <label>Seed:</label>
+            <div class="seed-control">
+              <input
+                v-model.number="seed"
+                type="number"
+                :disabled="!comfyUIStore.isConnected"
+              />
+              <button @click="randomizeSeed" :disabled="!comfyUIStore.isConnected" class="btn-small">
+                🎲
+              </button>
+            </div>
+          </div>
+          <div class="param">
+            <label>Steps:</label>
+            <input
+              v-model.number="steps"
+              type="number"
+              min="1"
+              max="50"
+              :disabled="!comfyUIStore.isConnected"
+            />
+          </div>
+        </div>
+
+        <p v-if="comfyUIStore.currentProgress" class="progress-message">
+          {{ comfyUIStore.currentProgress }}
+        </p>
+
         <div class="button-group">
           <button
             @click="generateImage"
-            :disabled="!comfyUIStore.isConnected || comfyUIStore.isProcessing"
+            :disabled="!comfyUIStore.isConnected || comfyUIStore.isProcessing || !uploadedFilename"
           >
-            Generate
+            {{ comfyUIStore.isProcessing ? 'Generating...' : 'Generate with Qwen Edit' }}
           </button>
           <button
             @click="interruptGeneration"
@@ -169,15 +198,19 @@ const clearImages = () => {
     <div class="info-box">
       <h3>ℹ️ About ComfyUI Integration</h3>
       <p>
-        This view allows you to interact with ComfyUI for advanced image generation and processing.
-        Make sure ComfyUI is running on <code>http://localhost:8188</code> before using this
-        feature.
+        This view uses the Qwen Image Edit workflow to edit/transform images using AI.
+        Make sure ComfyUI is running with the required Qwen models installed.
       </p>
       <p>
-        <strong>Note:</strong> The current implementation uses a simplified workflow structure. For
-        production use, you would need to implement complete workflow definitions based on your
-        specific ComfyUI setup and models.
+        <strong>Workflow:</strong>
       </p>
+      <ol>
+        <li>Upload an image to ComfyUI</li>
+        <li>Enter a prompt describing what you want to generate/edit</li>
+        <li>Optionally add a negative prompt for what to avoid</li>
+        <li>Click "Generate with Qwen Edit"</li>
+        <li>View results below when processing completes</li>
+      </ol>
     </div>
   </div>
 </template>
@@ -276,6 +309,52 @@ button:hover {
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+label {
+  display: block;
+  margin-bottom: 0.5rem;
+  margin-top: 1rem;
+  font-weight: 500;
+}
+
+.param-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.param label {
+  margin-top: 0;
+}
+
+.param input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+}
+
+.seed-control {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.seed-control input {
+  flex: 1;
+}
+
+.success-message {
+  color: #28a745;
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.progress-message {
+  color: #007bff;
+  margin-top: 0.5rem;
+  font-style: italic;
 }
 
 .btn-small {
