@@ -13,8 +13,10 @@ export const useJigsawBridgeStore = defineStore('jigsawBridge', () => {
   const isAnalyzing = ref(false)
   const isGeneratingPrompt = ref(false)
   const isEditing = ref(false)
+  const detectPeople = ref(false) // Toggle for people detection
   const currentAnalysis = ref<JigsawAnalysis | null>(null)
   const contextAwarePrompt = ref<string>('')
+  const jigsawCutPattern = ref<string>('') // New: jigsaw cut pattern
   const editResponse = ref<string>('')
   const suggestions = ref<string[]>([])
   const error = ref<string | null>(null)
@@ -23,20 +25,27 @@ export const useJigsawBridgeStore = defineStore('jigsawBridge', () => {
   const hasAnalysis = computed(() => currentAnalysis.value !== null)
   const hasPrompt = computed(() => contextAwarePrompt.value.length > 0)
   const hasSuggestions = computed(() => suggestions.value.length > 0)
+  const hasPeople = computed(
+    () => currentAnalysis.value?.detectedPeople && currentAnalysis.value.detectedPeople.length > 0,
+  )
+  const peopleCount = computed(() => currentAnalysis.value?.peopleCount || 0)
   const isProcessing = computed(
     () => isAnalyzing.value || isGeneratingPrompt.value || isEditing.value,
   )
 
   /**
-   * Step 1: Analyze jigsaw puzzle image
+   * Step 1: Analyze jigsaw puzzle image (with optional people detection)
    */
-  async function analyzeJigsaw(imageBase64: string) {
+  async function analyzeJigsaw(imageBase64: string, withPeopleDetection: boolean = false) {
     isAnalyzing.value = true
     error.value = null
     currentImage.value = imageBase64
 
     try {
-      const analysis = await service.analyzeJigsaw(imageBase64)
+      const analysis = withPeopleDetection
+        ? await service.analyzeWithPeopleDetection(imageBase64)
+        : await service.analyzeJigsaw(imageBase64)
+
       currentAnalysis.value = analysis
       return analysis
     } catch (err) {
@@ -45,6 +54,35 @@ export const useJigsawBridgeStore = defineStore('jigsawBridge', () => {
       throw err
     } finally {
       isAnalyzing.value = false
+    }
+  }
+
+  /**
+   * Generate jigsaw cutting pattern based on detected individuals
+   */
+  async function generateJigsawCutPattern(preferences?: {
+    pieceSize?: string
+    cutStyle?: string
+    preserveIndividuals?: boolean
+  }) {
+    if (!currentAnalysis.value) {
+      error.value = 'Please analyze the image first'
+      return
+    }
+
+    isGeneratingPrompt.value = true
+    error.value = null
+
+    try {
+      const pattern = await service.generateJigsawCutPrompt(currentAnalysis.value, preferences)
+      jigsawCutPattern.value = pattern
+      return pattern
+    } catch (err) {
+      error.value = 'Failed to generate jigsaw cut pattern'
+      console.error('Generate cut pattern error:', err)
+      throw err
+    } finally {
+      isGeneratingPrompt.value = false
     }
   }
 
@@ -108,10 +146,14 @@ export const useJigsawBridgeStore = defineStore('jigsawBridge', () => {
   /**
    * Complete workflow: analyze, generate prompt, and execute edit
    */
-  async function processJigsaw(imageBase64: string, userIntent: string) {
+  async function processJigsaw(
+    imageBase64: string,
+    userIntent: string,
+    withPeopleDetection: boolean = false,
+  ) {
     try {
-      // Step 1: Analyze
-      await analyzeJigsaw(imageBase64)
+      // Step 1: Analyze (with optional people detection)
+      await analyzeJigsaw(imageBase64, withPeopleDetection)
 
       // Step 2: Generate context-aware prompt
       await generateEditPrompt(userIntent)
@@ -136,10 +178,12 @@ export const useJigsawBridgeStore = defineStore('jigsawBridge', () => {
   function reset() {
     currentAnalysis.value = null
     contextAwarePrompt.value = ''
+    jigsawCutPattern.value = ''
     editResponse.value = ''
     suggestions.value = []
     error.value = null
     currentImage.value = null
+    detectPeople.value = false
   }
 
   /**
@@ -156,8 +200,10 @@ export const useJigsawBridgeStore = defineStore('jigsawBridge', () => {
     isGeneratingPrompt,
     isEditing,
     isProcessing,
+    detectPeople,
     currentAnalysis,
     contextAwarePrompt,
+    jigsawCutPattern,
     editResponse,
     suggestions,
     error,
@@ -165,8 +211,11 @@ export const useJigsawBridgeStore = defineStore('jigsawBridge', () => {
     hasAnalysis,
     hasPrompt,
     hasSuggestions,
+    hasPeople,
+    peopleCount,
     analyzeJigsaw,
     generateEditPrompt,
+    generateJigsawCutPattern,
     executeEdit,
     processJigsaw,
     reset,

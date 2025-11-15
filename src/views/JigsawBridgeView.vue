@@ -11,6 +11,8 @@ const selectedImageDisplay = ref<string | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 const visionModel = ref('qwen2-vl')
 const editModel = ref('qwen2.5')
+const enablePeopleDetection = ref(false)
+const generateCutPattern = ref(false) // New: option to generate cut pattern
 
 // Workflow steps
 const currentStep = ref<'upload' | 'analyze' | 'prompt' | 'edit' | 'complete'>('upload')
@@ -39,7 +41,7 @@ const analyzeImage = async () => {
   if (!selectedImage.value) return
 
   try {
-    await jigsawStore.analyzeJigsaw(selectedImage.value)
+    await jigsawStore.analyzeJigsaw(selectedImage.value, enablePeopleDetection.value)
     currentStep.value = 'analyze'
   } catch (error) {
     console.error('Failed to analyze image:', error)
@@ -47,13 +49,23 @@ const analyzeImage = async () => {
 }
 
 const generatePrompt = async () => {
-  if (!userIntent.value.trim()) {
-    alert('Please enter what you want to do with the puzzle')
+  if (!userIntent.value.trim() && !generateCutPattern.value) {
+    alert('Please enter what you want to do with the puzzle or enable cut pattern generation')
     return
   }
 
   try {
-    await jigsawStore.generateEditPrompt(userIntent.value)
+    if (generateCutPattern.value) {
+      // Generate jigsaw cut pattern
+      await jigsawStore.generateJigsawCutPattern({
+        pieceSize: 'medium',
+        cutStyle: 'traditional',
+        preserveIndividuals: true,
+      })
+    } else {
+      // Generate context-aware prompt
+      await jigsawStore.generateEditPrompt(userIntent.value)
+    }
     currentStep.value = 'prompt'
   } catch (error) {
     console.error('Failed to generate prompt:', error)
@@ -176,6 +188,18 @@ const updateModels = () => {
         <div v-if="selectedImageDisplay" class="preview">
           <img :src="selectedImageDisplay" alt="Preview" />
         </div>
+
+        <!-- People Detection Option -->
+        <div class="detection-option">
+          <label>
+            <input type="checkbox" v-model="enablePeopleDetection" />
+            Detect people/individuals in image (for family photos, group pictures)
+          </label>
+          <p class="help-text">
+            Enable this to identify individuals and create custom jigsaw cuts around them
+          </p>
+        </div>
+
         <button
           v-if="selectedImage"
           @click="analyzeImage"
@@ -198,12 +222,46 @@ const updateModels = () => {
           <h3>Vision Analysis:</h3>
           <p class="analysis-text">{{ jigsawStore.currentAnalysis?.context }}</p>
 
-          <h3>Your Intent:</h3>
+          <!-- Show detected people if any -->
+          <div v-if="jigsawStore.hasPeople" class="people-detection">
+            <h3>✅ Detected {{ jigsawStore.peopleCount }} Individual(s):</h3>
+            <div class="people-list">
+              <div
+                v-for="person in jigsawStore.currentAnalysis?.detectedPeople"
+                :key="person.id"
+                class="person-card"
+              >
+                <strong>Person {{ person.id }}:</strong>
+                {{ person.description }}
+                <br />
+                <span class="person-detail">Position: {{ person.position }}</span>
+                <span v-if="person.clothing" class="person-detail">{{ person.clothing }}</span>
+              </div>
+            </div>
+
+            <!-- Option to generate jigsaw cut pattern -->
+            <div class="cut-pattern-option">
+              <label>
+                <input type="checkbox" v-model="generateCutPattern" />
+                Generate jigsaw cut pattern along detected individuals
+              </label>
+              <p class="help-text">
+                Creates cutting instructions that preserve each person's form in the puzzle
+              </p>
+            </div>
+          </div>
+
+          <h3>{{ generateCutPattern ? 'Preferences:' : 'Your Intent:' }}</h3>
           <textarea
+            v-if="!generateCutPattern"
             v-model="userIntent"
             placeholder="What do you want to do with this puzzle? (e.g., 'make it more colorful', 'add a vintage filter', 'enhance the contrast')"
             rows="3"
           ></textarea>
+          <p v-else class="info-text">
+            The system will generate a jigsaw cutting pattern that cuts along the contours of the
+            {{ jigsawStore.peopleCount }} detected individual(s).
+          </p>
 
           <button
             @click="generatePrompt"
@@ -218,21 +276,35 @@ const updateModels = () => {
       </div>
     </div>
 
-    <!-- Step 3: Context-Aware Prompt -->
-    <div v-if="currentStep === 'prompt' && jigsawStore.hasPrompt" class="section">
-      <h2>Step 3: Context-Aware Edit Prompt</h2>
+    <!-- Step 3: Context-Aware Prompt or Jigsaw Cut Pattern -->
+    <div v-if="currentStep === 'prompt' && (jigsawStore.hasPrompt || jigsawStore.jigsawCutPattern)" class="section">
+      <h2>Step 3: {{ generateCutPattern ? 'Jigsaw Cut Pattern' : 'Context-Aware Edit Prompt' }}</h2>
       <div class="prompt-section">
         <div class="prompt-display">
-          <h3>Generated Prompt (with context from vision analysis):</h3>
-          <div class="prompt-text">{{ jigsawStore.contextAwarePrompt }}</div>
+          <h3 v-if="generateCutPattern">Generated Jigsaw Cutting Pattern:</h3>
+          <h3 v-else>Generated Prompt (with context from vision analysis):</h3>
+          <div class="prompt-text">
+            {{ generateCutPattern ? jigsawStore.jigsawCutPattern : jigsawStore.contextAwarePrompt }}
+          </div>
+        </div>
+
+        <div v-if="generateCutPattern && jigsawStore.hasPeople" class="people-summary">
+          <h4>🎯 Cutting Strategy:</h4>
+          <p>
+            This pattern creates {{ jigsawStore.peopleCount }} distinct sections, one for each
+            detected individual, with cuts following their contours.
+          </p>
         </div>
 
         <div class="prompt-actions">
-          <button @click="executeEdit" :disabled="jigsawStore.isEditing" class="btn-primary">
+          <button v-if="!generateCutPattern" @click="executeEdit" :disabled="jigsawStore.isEditing" class="btn-primary">
             {{ jigsawStore.isEditing ? 'Processing...' : 'Execute Edit →' }}
           </button>
+          <button v-else @click="currentStep = 'complete'" class="btn-primary">
+            View Complete Pattern →
+          </button>
           <button @click="currentStep = 'analyze'" class="btn-secondary">
-            ← Back to Edit Intent
+            ← Back to {{ generateCutPattern ? 'Options' : 'Edit Intent' }}
           </button>
         </div>
       </div>
@@ -640,6 +712,105 @@ button:disabled {
 
 .info-box li {
   margin: 0.75rem 0;
+}
+
+.detection-option {
+  margin: 1rem 0;
+  padding: 1rem;
+  background-color: #f0f8ff;
+  border-radius: 4px;
+  text-align: left;
+}
+
+.detection-option label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.detection-option input[type='checkbox'] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.help-text {
+  margin: 0.5rem 0 0 0;
+  font-size: 0.875rem;
+  color: #666;
+  font-style: italic;
+}
+
+.people-detection {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background-color: #e8f5e9;
+  border-radius: 8px;
+  border-left: 4px solid #4caf50;
+}
+
+.people-list {
+  margin: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.person-card {
+  padding: 0.75rem;
+  background-color: white;
+  border-radius: 4px;
+  border: 1px solid #c8e6c9;
+}
+
+.person-detail {
+  display: block;
+  font-size: 0.875rem;
+  color: #666;
+  margin-top: 0.25rem;
+}
+
+.cut-pattern-option {
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: #fff9c4;
+  border-radius: 4px;
+}
+
+.cut-pattern-option label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.cut-pattern-option input[type='checkbox'] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.info-text {
+  padding: 1rem;
+  background-color: #e3f2fd;
+  border-radius: 4px;
+  margin: 0.5rem 0;
+}
+
+.people-summary {
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: #e8f5e9;
+  border-radius: 4px;
+  border-left: 4px solid #4caf50;
+}
+
+.people-summary h4 {
+  margin-top: 0;
+  color: #2e7d32;
 }
 
 @media (max-width: 768px) {
