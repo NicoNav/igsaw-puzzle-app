@@ -50,7 +50,7 @@ Edit `.env` to customize service URLs if needed.
 
 2. Pull vision models:
 ```bash
-# For general vision tasks
+# For general vision tasks (LLaVA)
 ollama pull llava
 
 # For Qwen Vision (recommended for Jigsaw Bridge)
@@ -60,7 +60,18 @@ ollama pull qwen2-vl
 ollama pull qwen2.5
 ```
 
-3. Start Ollama (it usually runs automatically):
+**Important**: Make sure to pull the models you want to use before accessing the application. If you get a "model not found" error, pull the specific model:
+```bash
+# Example: if you see "model 'llava' not found"
+ollama pull llava
+```
+
+3. Verify models are installed:
+```bash
+ollama list
+```
+
+4. Start Ollama (it usually runs automatically):
 ```bash
 ollama serve
 ```
@@ -235,6 +246,24 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 This project is open source and available under the MIT License.
 
 ## Troubleshooting
+
+### Model 'llava' not found (404 error)
+This error occurs when the selected model hasn't been downloaded to Ollama yet.
+
+**Solution:**
+```bash
+# Pull the model that's showing as "not found"
+ollama pull llava
+
+# Or for other models:
+ollama pull qwen2-vl
+ollama pull qwen2.5
+
+# Verify models are installed
+ollama list
+```
+
+**Note**: Even if the model appears in the dropdown, it must be downloaded to your local Ollama installation. The dropdown shows models configured in the app, not necessarily the models you have installed.
 
 ### Ollama not connecting
 - Make sure Ollama is running: `ollama serve`

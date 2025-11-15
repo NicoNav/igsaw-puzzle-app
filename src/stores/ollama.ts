@@ -4,7 +4,7 @@ import { createOllamaService, type OllamaMessage } from '@/services/ollamaServic
 import config from '@/config'
 
 export const useOllamaStore = defineStore('ollama', () => {
-  const service = createOllamaService(config.ollama.baseUrl, config.ollama.defaultModel)
+  let service = createOllamaService(config.ollama.baseUrl, config.ollama.defaultModel)
   const isConnected = ref(false)
   const isLoading = ref(false)
   const currentModel = ref(config.ollama.defaultModel)
@@ -90,10 +90,11 @@ export const useOllamaStore = defineStore('ollama', () => {
 
   function setModel(model: string) {
     currentModel.value = model
+    // Recreate the service with the new model
+    service = createOllamaService(config.ollama.baseUrl, model)
   }
 
   return {
-    service,
     isConnected,
     isLoading,
     currentModel,
