@@ -4,8 +4,8 @@
 
 export const config = {
   ollama: {
-    // Base URL for Ollama API
-    baseUrl: import.meta.env.VITE_OLLAMA_URL || 'http://localhost:11434',
+    // Base URL for Ollama API (using proxy in development to avoid CORS)
+    baseUrl: import.meta.env.VITE_OLLAMA_URL || '/ollama',
     // Default model to use (llava, gwen, or other vision models)
     defaultModel: import.meta.env.VITE_OLLAMA_MODEL || 'llava',
     // Qwen vision model for jigsaw analysis
@@ -14,10 +14,10 @@ export const config = {
     editModel: import.meta.env.VITE_QWEN_EDIT_MODEL || 'qwen2.5',
   },
   comfyui: {
-    // Base URL for ComfyUI API
-    baseUrl: import.meta.env.VITE_COMFYUI_URL || 'http://10.0.0.77:8188',
-    // WebSocket URL for real-time updates
-    wsUrl: import.meta.env.VITE_COMFYUI_WS || 'ws://10.0.0.77:8188/ws',
+    // Base URL for ComfyUI API (using proxy in development to avoid CORS)
+    baseUrl: import.meta.env.VITE_COMFYUI_URL || '/comfy',
+    // WebSocket URL for real-time updates (using proxy in development)
+    wsUrl: import.meta.env.VITE_COMFYUI_WS || 'ws://localhost:5173/comfy/ws',
   },
 }
 

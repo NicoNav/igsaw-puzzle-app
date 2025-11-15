@@ -204,11 +204,13 @@ igsaw-puzzle-app/
 
 ## Configuration
 
-You can customize the application by editing `.env`:
+### Development Mode
+
+In development, the app uses Vite's proxy to avoid CORS issues. Configure the backend service URLs in `.env`:
 
 ```env
 # Ollama Configuration
-VITE_OLLAMA_URL=http://localhost:11434
+VITE_OLLAMA_BASE_URL=http://localhost:11434
 VITE_OLLAMA_MODEL=llava
 
 # Qwen Models for Jigsaw Bridge
@@ -216,22 +218,36 @@ VITE_QWEN_VISION_MODEL=qwen2-vl
 VITE_QWEN_EDIT_MODEL=qwen2.5
 
 # ComfyUI Configuration
-# Change these if ComfyUI is running on a different machine or port
-VITE_COMFYUI_URL=http://localhost:8188
-VITE_COMFYUI_WS=ws://localhost:8188/ws
+# Change these if services are running on different machines
+VITE_COMFYUI_BASE_URL=http://10.0.0.77:8188
+```
+
+The Vite dev server proxies requests:
+- `/ollama/*` → configured Ollama server
+- `/comfy/*` → configured ComfyUI server
+
+This eliminates CORS issues during development.
+
+### Production Mode
+
+For production builds, override the proxy URLs with direct URLs:
+
+```env
+VITE_OLLAMA_URL=http://your-ollama-server:11434
+VITE_COMFYUI_URL=http://your-comfyui-server:8188
+VITE_COMFYUI_WS=ws://your-comfyui-server:8188/ws
 ```
 
 **Examples for different setups:**
 
 If ComfyUI is running on a different machine in your network:
 ```env
-VITE_COMFYUI_URL=http://10.0.0.77:8188
-VITE_COMFYUI_WS=ws://10.0.0.77:8188/ws
+VITE_COMFYUI_BASE_URL=http://10.0.0.77:8188
 ```
 
 If Ollama is running on a different machine:
 ```env
-VITE_OLLAMA_URL=http://192.168.1.100:11434
+VITE_OLLAMA_BASE_URL=http://192.168.1.100:11434
 ```
 
 ## Technologies Used
@@ -288,17 +304,35 @@ ollama list
 ### Ollama not connecting
 - Make sure Ollama is running: `ollama serve`
 - Check if the port 11434 is accessible
-- Verify the VITE_OLLAMA_URL in your .env file
+- In development, set `VITE_OLLAMA_BASE_URL` in your `.env` file
 
 ### ComfyUI not connecting
 - Make sure ComfyUI is running: `python main.py`
 - Check if the port 8188 is accessible
-- Verify the VITE_COMFYUI_URL in your .env file
+- In development, set `VITE_COMFYUI_BASE_URL` in your `.env` file
 
-### CORS Issues
-- Both services need to allow CORS from your development server
-- Ollama typically allows all origins by default
-- ComfyUI may need additional configuration
+### CORS Issues (405 Method Not Allowed, Access-Control-Allow-Origin)
+
+**In Development:** The app uses Vite's built-in proxy to avoid CORS issues. Make sure you're using the proxy configuration:
+
+1. Set backend URLs in `.env`:
+   ```env
+   VITE_OLLAMA_BASE_URL=http://localhost:11434
+   VITE_COMFYUI_BASE_URL=http://10.0.0.77:8188
+   ```
+
+2. The Vite dev server automatically proxies requests:
+   - `/ollama/*` → your Ollama server
+   - `/comfy/*` → your ComfyUI server
+
+3. Restart the dev server after changing `.env`:
+   ```bash
+   npm run dev
+   ```
+
+**In Production:** If you encounter CORS issues in production:
+- Configure CORS headers on your backend services
+- Or use a reverse proxy (nginx, Apache, etc.) to serve both the app and APIs from the same origin
 
 ## Support
 
