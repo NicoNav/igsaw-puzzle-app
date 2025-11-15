@@ -98,7 +98,13 @@ pip install -r requirements.txt
 python main.py
 ```
 
-The service will be available at `http://localhost:8188`
+The service will be available at `http://localhost:8188` by default.
+
+**Note**: If you're running ComfyUI on a different machine or port, you can configure the URL in your `.env` file. For example:
+```env
+VITE_COMFYUI_URL=http://10.0.0.77:8188
+VITE_COMFYUI_WS=ws://10.0.0.77:8188/ws
+```
 
 ## Running the Application
 
@@ -210,8 +216,22 @@ VITE_QWEN_VISION_MODEL=qwen2-vl
 VITE_QWEN_EDIT_MODEL=qwen2.5
 
 # ComfyUI Configuration
+# Change these if ComfyUI is running on a different machine or port
 VITE_COMFYUI_URL=http://localhost:8188
 VITE_COMFYUI_WS=ws://localhost:8188/ws
+```
+
+**Examples for different setups:**
+
+If ComfyUI is running on a different machine in your network:
+```env
+VITE_COMFYUI_URL=http://10.0.0.77:8188
+VITE_COMFYUI_WS=ws://10.0.0.77:8188/ws
+```
+
+If Ollama is running on a different machine:
+```env
+VITE_OLLAMA_URL=http://192.168.1.100:11434
 ```
 
 ## Technologies Used
