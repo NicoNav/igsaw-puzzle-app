@@ -1,10 +1,11 @@
 # 🧩 Igsaw Puzzle App
 
-A Vue 3 application that integrates **Ollama with Vision Models (Gwen/LLaVA)** and **ComfyUI** for advanced AI-powered image processing and generation.
+A Vue 3 application that integrates **Ollama with Vision Models (Qwen/LLaVA)** and **ComfyUI** for advanced AI-powered image processing and generation.
 
 ## Features
 
-- 🤖 **Ollama Vision Integration**: Analyze and understand images using vision AI models like Gwen or LLaVA
+- 🔗 **Jigsaw Bridge**: Context-aware workflow connecting Qwen Vision and Qwen Edit for intelligent jigsaw puzzle processing
+- 🤖 **Ollama Vision Integration**: Analyze and understand images using vision AI models like Qwen or LLaVA
 - 🎨 **ComfyUI Integration**: Advanced image generation and processing workflows
 - 🔄 **Real-time Updates**: Live status of both services
 - 💬 **Interactive Chat**: Chat with AI about your images
@@ -47,14 +48,16 @@ Edit `.env` to customize service URLs if needed.
 
 1. Install Ollama from [ollama.ai](https://ollama.ai)
 
-2. Pull a vision model (e.g., LLaVA):
+2. Pull vision models:
 ```bash
+# For general vision tasks
 ollama pull llava
-```
 
-Or for Gwen vision model (if available):
-```bash
-ollama pull gwen
+# For Qwen Vision (recommended for Jigsaw Bridge)
+ollama pull qwen2-vl
+
+# For Qwen Edit
+ollama pull qwen2.5
 ```
 
 3. Start Ollama (it usually runs automatically):
@@ -110,6 +113,21 @@ npm run preview
 
 ## Usage
 
+### Jigsaw Bridge (Recommended)
+
+The **Jigsaw Bridge** provides a context-aware workflow where Qwen Vision analyzes your puzzle and Qwen Edit applies changes based on that context.
+
+1. Navigate to the "Jigsaw Bridge" tab
+2. Configure vision and edit models (defaults: qwen2-vl and qwen2.5)
+3. Upload your jigsaw puzzle image
+4. The workflow guides you through 4 steps:
+   - **Step 1**: Upload image
+   - **Step 2**: Analyze with Qwen Vision (provides detailed context)
+   - **Step 3**: Enter your intent (generates context-aware prompt)
+   - **Step 4**: Execute edit with Qwen Edit
+
+**Key Benefit**: The edit model receives context from the vision analysis, making edits more accurate and contextually appropriate for jigsaw puzzles.
+
 ### Ollama Vision
 
 1. Navigate to the "Ollama Vision" tab
@@ -134,12 +152,17 @@ igsaw-puzzle-app/
 │   ├── router/          # Vue Router configuration
 │   ├── services/        # API services
 │   │   ├── ollamaService.ts
-│   │   └── comfyUIService.ts
+│   │   ├── comfyUIService.ts
+│   │   └── jigsawBridgeService.ts  # Bridge between vision and edit
 │   ├── stores/          # Pinia stores
 │   │   ├── ollama.ts
-│   │   └── comfyui.ts
+│   │   ├── comfyui.ts
+│   │   └── jigsawBridge.ts         # Jigsaw Bridge state
 │   ├── views/           # Page components
 │   │   ├── HomeView.vue
+│   │   ├── JigsawBridgeView.vue   # Context-aware workflow
+│   │   ├── OllamaView.vue
+│   │   └── ComfyUIView.vue
 │   │   ├── OllamaView.vue
 │   │   └── ComfyUIView.vue
 │   ├── App.vue          # Main app component
@@ -170,6 +193,10 @@ You can customize the application by editing `.env`:
 # Ollama Configuration
 VITE_OLLAMA_URL=http://localhost:11434
 VITE_OLLAMA_MODEL=llava
+
+# Qwen Models for Jigsaw Bridge
+VITE_QWEN_VISION_MODEL=qwen2-vl
+VITE_QWEN_EDIT_MODEL=qwen2.5
 
 # ComfyUI Configuration
 VITE_COMFYUI_URL=http://localhost:8188

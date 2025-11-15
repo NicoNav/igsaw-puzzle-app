@@ -8,6 +8,10 @@ export const config = {
     baseUrl: import.meta.env.VITE_OLLAMA_URL || 'http://localhost:11434',
     // Default model to use (llava, gwen, or other vision models)
     defaultModel: import.meta.env.VITE_OLLAMA_MODEL || 'llava',
+    // Qwen vision model for jigsaw analysis
+    visionModel: import.meta.env.VITE_QWEN_VISION_MODEL || 'qwen2-vl',
+    // Qwen edit model for context-aware editing
+    editModel: import.meta.env.VITE_QWEN_EDIT_MODEL || 'qwen2.5',
   },
   comfyui: {
     // Base URL for ComfyUI API

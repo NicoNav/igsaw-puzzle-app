@@ -10,6 +10,11 @@ const router = createRouter({
       component: HomeView,
     },
     {
+      path: '/jigsaw-bridge',
+      name: 'jigsaw-bridge',
+      component: () => import('../views/JigsawBridgeView.vue'),
+    },
+    {
       path: '/ollama',
       name: 'ollama',
       component: () => import('../views/OllamaView.vue'),
