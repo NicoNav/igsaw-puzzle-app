@@ -208,6 +208,14 @@ export const useJigsawBridgeStore = defineStore('jigsawBridge', () => {
     service.setEditModel(editModel)
   }
 
+  function setVisionModel(model: string) {
+    service.setVisionModel(model)
+  }
+
+  function setEditModel(model: string) {
+    service.setEditModel(model)
+  }
+
   /**
    * NEW WORKFLOW: Prepare multi-piece jigsaw puzzle
    * Step 1-3 of your envisioned workflow
@@ -332,6 +340,8 @@ export const useJigsawBridgeStore = defineStore('jigsawBridge', () => {
     processJigsaw,
     reset,
     setModels,
+    setVisionModel,
+    setEditModel,
     prepareMultiPieceJigsaw,
     generateAllPuzzlePieces,
   }
