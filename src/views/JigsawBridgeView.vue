@@ -9,7 +9,7 @@ const userIntent = ref('')
 const selectedImage = ref<string | null>(null)
 const selectedImageDisplay = ref<string | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
-const visionModel = ref('qwen2-vl')
+const visionModel = ref('qwen2-vl:4b')
 const editModel = ref('qwen2.5')
 const enablePeopleDetection = ref(false)
 const generateCutPattern = ref(false) // New: option to generate cut pattern
@@ -128,7 +128,7 @@ const updateModels = () => {
     <div class="model-config">
       <div class="model-select">
         <label>Vision Model:</label>
-        <input v-model="visionModel" @change="updateModels" placeholder="qwen2-vl" />
+        <input v-model="visionModel" @change="updateModels" placeholder="qwen2-vl:4b" />
       </div>
       <div class="model-select">
         <label>Edit Model:</label>

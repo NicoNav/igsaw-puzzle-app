@@ -53,8 +53,8 @@ Edit `.env` to customize service URLs if needed.
 # For general vision tasks (LLaVA)
 ollama pull llava
 
-# For Qwen Vision (recommended for Jigsaw Bridge)
-ollama pull qwen2-vl
+# For Qwen Vision (recommended for Jigsaw Bridge) - 4B parameter version
+ollama pull qwen2-vl:4b
 
 # For Qwen Edit
 ollama pull qwen2.5
@@ -135,7 +135,7 @@ npm run preview
 The **Jigsaw Bridge** provides a context-aware workflow where Qwen Vision analyzes your puzzle and Qwen Edit applies changes based on that context.
 
 1. Navigate to the "Jigsaw Bridge" tab
-2. Configure vision and edit models (defaults: qwen2-vl and qwen2.5)
+2. Configure vision and edit models (defaults: qwen2-vl:4b and qwen2.5)
 3. Upload your jigsaw puzzle image
 4. The workflow guides you through 4 steps:
    - **Step 1**: Upload image

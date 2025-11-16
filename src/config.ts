@@ -9,7 +9,7 @@ export const config = {
     // Default model to use (llava, gwen, or other vision models)
     defaultModel: import.meta.env.VITE_OLLAMA_MODEL || 'llava',
     // Qwen vision model for jigsaw analysis
-    visionModel: import.meta.env.VITE_QWEN_VISION_MODEL || 'qwen2-vl',
+    visionModel: import.meta.env.VITE_QWEN_VISION_MODEL || 'qwen2-vl:4b',
     // Qwen edit model for context-aware editing
     editModel: import.meta.env.VITE_QWEN_EDIT_MODEL || 'qwen2.5',
   },
