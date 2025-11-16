@@ -31,11 +31,13 @@ const handleImageUpload = async (event: Event) => {
     // Upload to ComfyUI first
     try {
       const result = await comfyUIStore.uploadImage(file)
-      if (result.success && result.filename) {
+      if (result && result.filename) {
         uploadedFilename.value = result.filename
+        console.log('Uploaded to ComfyUI:', result.filename)
       }
     } catch (error) {
       console.error('Failed to upload to ComfyUI:', error)
+      alert('Failed to upload image to ComfyUI. Please check connection.')
     }
 
     // Also prepare for preview
