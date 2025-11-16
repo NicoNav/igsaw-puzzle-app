@@ -163,13 +163,30 @@ const resetWorkflow = () => {
         <div v-if="selectedImageDisplay" class="preview">
           <img :src="selectedImageDisplay" alt="Preview" />
         </div>
+        
+        <!-- Upload status message -->
+        <div v-if="selectedImage && !uploadedFilename" class="upload-status">
+          <p>⏳ Uploading image to ComfyUI...</p>
+        </div>
+        <div v-else-if="uploadedFilename" class="upload-status success">
+          <p>✅ Image uploaded successfully: {{ uploadedFilename }}</p>
+        </div>
+        
+        <!-- Next step button -->
         <button
           v-if="selectedImage && uploadedFilename"
           @click="prepareMultiPiece"
           :disabled="jigsawStore.isProcessing"
-          class="btn-primary"
+          class="btn-primary btn-large"
         >
-          {{ jigsawStore.isProcessing ? 'Processing...' : 'Analyze Image →' }}
+          {{ jigsawStore.isProcessing ? '⏳ Analyzing Image...' : '🔍 Analyze Image & Identify Subjects →' }}
+        </button>
+        <button
+          v-else-if="selectedImage && !uploadedFilename"
+          disabled
+          class="btn-primary btn-large"
+        >
+          ⏳ Uploading to ComfyUI...
         </button>
       </div>
     </div>
@@ -699,6 +716,13 @@ const resetWorkflow = () => {
   transition: background 0.2s;
 }
 
+.btn-primary.btn-large {
+  padding: 1rem 2.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-top: 1rem;
+}
+
 .btn-primary:hover:not(:disabled) {
   background: #0056b3;
 }
@@ -706,6 +730,26 @@ const resetWorkflow = () => {
 .btn-primary:disabled {
   background: #6c757d;
   cursor: not-allowed;
+}
+
+.upload-status {
+  padding: 1rem;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 4px;
+  text-align: center;
+  margin: 0.5rem 0;
+}
+
+.upload-status.success {
+  background: #d4edda;
+  border-color: #28a745;
+  color: #155724;
+}
+
+.upload-status p {
+  margin: 0;
+  font-weight: 600;
 }
 
 .btn-secondary {
