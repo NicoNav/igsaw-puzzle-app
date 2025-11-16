@@ -36,7 +36,7 @@ export class OllamaService {
       headers: {
         'Content-Type': 'application/json',
       },
-      timeout: 60000, // 60 seconds timeout for vision processing
+      timeout: 320000, // 320 seconds timeout for vision processing (accommodates slower hardware like Mac Mini)
     })
   }
 
