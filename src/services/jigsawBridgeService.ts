@@ -9,6 +9,24 @@ export interface DetectedPerson {
   gender?: string
 }
 
+export interface ImageSubject {
+  id: number
+  name: string
+  description: string
+  position: string
+  boundingArea?: string
+  generatedPrompt?: string
+}
+
+export interface JigsawPiece {
+  id: number
+  subjectId: number
+  prompt: string
+  imageUrl?: string
+  status: 'pending' | 'generating' | 'complete' | 'error'
+  error?: string
+}
+
 export interface JigsawAnalysis {
   imageDescription: string
   pieceCount?: number
@@ -17,6 +35,8 @@ export interface JigsawAnalysis {
   context: string
   detectedPeople?: DetectedPerson[]
   peopleCount?: number
+  subjects?: ImageSubject[]
+  subjectCount?: number
 }
 
 export interface JigsawEditRequest {
@@ -351,6 +371,215 @@ Return only the editing prompt, no explanations.`,
       baseUrl: this.editService['config'].baseUrl,
       model,
     })
+  }
+
+  /**
+   * Identify subjects/elements in the image for jigsaw piece generation
+   * This is the foundation for multi-piece jigsaw puzzle creation
+   */
+  async identifyImageSubjects(imageBase64: string): Promise<ImageSubject[]> {
+    const identificationPrompt = `Analyze this image and identify all distinct subjects or elements that could be separated into individual jigsaw puzzle pieces.
+
+For each subject/element, provide:
+1. A unique identifier (1, 2, 3, etc.)
+2. A name or label for the subject (e.g., "person in blue shirt", "dog", "house", "tree", "car")
+3. A detailed description
+4. Their position in the image (e.g., "left foreground", "center background", "top right")
+5. The approximate bounding area they occupy
+
+Format your response as a structured list for each subject.
+Think of each subject as something that could become its own puzzle piece or set of pieces.
+
+Example output:
+1. Subject: Woman in red dress
+   Description: Adult woman wearing a red dress, smiling
+   Position: Center-left of image
+   Area: Occupies approximately 20% of image, central positioning
+
+2. Subject: Golden Retriever
+   Description: Large golden-colored dog sitting
+   Position: Right side of image
+   Area: Occupies approximately 15% of image, lower right quadrant
+
+Continue this format for all identifiable subjects.`
+
+    const response = await this.visionService.analyzeImage(imageBase64, identificationPrompt)
+    const subjects = this.parseSubjectsFromResponse(response)
+    return subjects
+  }
+
+  /**
+   * Parse identified subjects from vision model response
+   */
+  private parseSubjectsFromResponse(response: string): ImageSubject[] {
+    const subjects: ImageSubject[] = []
+    const lines = response.split('\n')
+    let currentSubject: Partial<ImageSubject> | null = null
+    let subjectId = 0
+
+    for (const line of lines) {
+      const trimmedLine = line.trim()
+
+      // Check for subject markers (numbered items)
+      if (trimmedLine.match(/^\d+\.\s*(subject|element|item)[:\s]/i)) {
+        // Save previous subject if exists
+        if (currentSubject && currentSubject.name) {
+          subjects.push({
+            id: currentSubject.id || ++subjectId,
+            name: currentSubject.name || '',
+            description: currentSubject.description || '',
+            position: currentSubject.position || 'unknown',
+            boundingArea: currentSubject.boundingArea,
+          })
+        }
+
+        // Extract subject name from line
+        const nameMatch = trimmedLine.match(/^\d+\.\s*(?:subject|element|item)[:\s]*(.+)/i)
+        currentSubject = {
+          id: ++subjectId,
+          name: nameMatch ? nameMatch[1].trim() : trimmedLine,
+        }
+      } else if (currentSubject && trimmedLine.length > 0) {
+        // Parse subject properties
+        if (trimmedLine.toLowerCase().includes('description:')) {
+          currentSubject.description = trimmedLine.replace(/description:\s*/i, '').trim()
+        } else if (trimmedLine.toLowerCase().includes('position:')) {
+          currentSubject.position = trimmedLine.replace(/position:\s*/i, '').trim()
+        } else if (trimmedLine.toLowerCase().includes('area:')) {
+          currentSubject.boundingArea = trimmedLine.replace(/area:\s*/i, '').trim()
+        } else if (!currentSubject.description) {
+          // If no description yet, add to it
+          currentSubject.description = (currentSubject.description || '') + ' ' + trimmedLine
+        }
+      }
+    }
+
+    // Add the last subject
+    if (currentSubject && currentSubject.name) {
+      subjects.push({
+        id: currentSubject.id || ++subjectId,
+        name: currentSubject.name || '',
+        description: currentSubject.description || '',
+        position: currentSubject.position || 'unknown',
+        boundingArea: currentSubject.boundingArea,
+      })
+    }
+
+    return subjects
+  }
+
+  /**
+   * Generate individual prompts for each subject to create jigsaw pieces
+   * This is Step 3 of your workflow
+   */
+  async generateSubjectPrompts(subjects: ImageSubject[], imageContext: string): Promise<ImageSubject[]> {
+    const promptGenerationMessages: OllamaMessage[] = [
+      {
+        role: 'system',
+        content: `You are an expert at creating image generation prompts for jigsaw puzzle pieces. Each subject should get a detailed, specific prompt that will generate a high-quality puzzle piece.`,
+      },
+      {
+        role: 'user',
+        content: `Based on this image context:
+${imageContext}
+
+Generate a detailed ComfyUI/image generation prompt for each of the following subjects. Each prompt should:
+1. Describe the subject in detail for accurate generation
+2. Include style, lighting, and composition details from the original image
+3. Be specific enough to create a recognizable puzzle piece
+4. Maintain visual consistency with the original image
+
+Subjects:
+${subjects.map((s, i) => `${i + 1}. ${s.name}: ${s.description} (${s.position})`).join('\n')}
+
+For each subject, provide a complete, standalone prompt that could be used to generate that portion of the image.
+
+Format your response as:
+Subject 1: [detailed prompt]
+Subject 2: [detailed prompt]
+etc.`,
+      },
+    ]
+
+    const response = await this.editService.chat(promptGenerationMessages)
+    const prompts = this.parseGeneratedPrompts(response.message.content, subjects.length)
+
+    // Attach prompts to subjects
+    return subjects.map((subject, index) => ({
+      ...subject,
+      generatedPrompt: prompts[index] || `Generate ${subject.name}: ${subject.description}`,
+    }))
+  }
+
+  /**
+   * Parse generated prompts from LLM response
+   */
+  private parseGeneratedPrompts(response: string, expectedCount: number): string[] {
+    const prompts: string[] = []
+    const lines = response.split('\n')
+    let currentPrompt = ''
+
+    for (const line of lines) {
+      const trimmedLine = line.trim()
+
+      // Check if this is a new subject line
+      if (trimmedLine.match(/^subject\s+\d+:/i)) {
+        if (currentPrompt) {
+          prompts.push(currentPrompt.trim())
+        }
+        currentPrompt = trimmedLine.replace(/^subject\s+\d+:\s*/i, '')
+      } else if (currentPrompt && trimmedLine.length > 0) {
+        currentPrompt += ' ' + trimmedLine
+      }
+    }
+
+    // Add the last prompt
+    if (currentPrompt) {
+      prompts.push(currentPrompt.trim())
+    }
+
+    // Ensure we have enough prompts
+    while (prompts.length < expectedCount) {
+      prompts.push('Generate detailed image')
+    }
+
+    return prompts
+  }
+
+  /**
+   * Complete workflow for multi-piece jigsaw puzzle generation:
+   * 1. Analyze image to get context
+   * 2. Identify subjects for puzzle pieces
+   * 3. Generate prompts for each subject
+   * Returns everything needed to call ComfyUI for each piece
+   */
+  async prepareMultiPieceJigsaw(imageBase64: string): Promise<{
+    analysis: JigsawAnalysis
+    subjects: ImageSubject[]
+    readyForGeneration: boolean
+  }> {
+    // Step 1: Get image context
+    const analysis = await this.analyzeJigsaw(imageBase64)
+
+    // Step 2: Identify subjects
+    const subjects = await this.identifyImageSubjects(imageBase64)
+
+    // Step 3: Generate prompts for each subject
+    const subjectsWithPrompts = await this.generateSubjectPrompts(subjects, analysis.context)
+
+    // Update analysis with subject information
+    const enhancedAnalysis: JigsawAnalysis = {
+      ...analysis,
+      subjects: subjectsWithPrompts,
+      subjectCount: subjectsWithPrompts.length,
+      context: `${analysis.context}\n\nIdentified ${subjectsWithPrompts.length} subjects for puzzle pieces:\n${subjectsWithPrompts.map((s) => `- ${s.name}: ${s.description}`).join('\n')}`,
+    }
+
+    return {
+      analysis: enhancedAnalysis,
+      subjects: subjectsWithPrompts,
+      readyForGeneration: subjectsWithPrompts.length > 0 && subjectsWithPrompts.every((s) => s.generatedPrompt),
+    }
   }
 }
 

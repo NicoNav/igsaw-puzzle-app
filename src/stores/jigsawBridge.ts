@@ -1,6 +1,12 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
-import { createJigsawBridge, type JigsawAnalysis } from '@/services/jigsawBridgeService'
+import {
+  createJigsawBridge,
+  type JigsawAnalysis,
+  type ImageSubject,
+  type JigsawPiece,
+} from '@/services/jigsawBridgeService'
+import { useComfyUIStore } from './comfyui'
 import config from '@/config'
 
 export const useJigsawBridgeStore = defineStore('jigsawBridge', () => {
@@ -22,6 +28,11 @@ export const useJigsawBridgeStore = defineStore('jigsawBridge', () => {
   const error = ref<string | null>(null)
   const currentImage = ref<string | null>(null)
 
+  // Multi-piece jigsaw state
+  const puzzlePieces = ref<JigsawPiece[]>([])
+  const isGeneratingPieces = ref(false)
+  const generationProgress = ref({ current: 0, total: 0 })
+
   const hasAnalysis = computed(() => currentAnalysis.value !== null)
   const hasPrompt = computed(() => contextAwarePrompt.value.length > 0)
   const hasSuggestions = computed(() => suggestions.value.length > 0)
@@ -30,8 +41,11 @@ export const useJigsawBridgeStore = defineStore('jigsawBridge', () => {
   )
   const peopleCount = computed(() => currentAnalysis.value?.peopleCount || 0)
   const isProcessing = computed(
-    () => isAnalyzing.value || isGeneratingPrompt.value || isEditing.value,
+    () => isAnalyzing.value || isGeneratingPrompt.value || isEditing.value || isGeneratingPieces.value,
   )
+  const subjectsWithPrompts = computed(() => currentAnalysis.value?.subjects || [])
+  const hasPuzzlePieces = computed(() => puzzlePieces.value.length > 0)
+  const completedPieces = computed(() => puzzlePieces.value.filter((p) => p.status === 'complete'))
 
   /**
    * Step 1: Analyze jigsaw puzzle image (with optional people detection)
@@ -194,6 +208,98 @@ export const useJigsawBridgeStore = defineStore('jigsawBridge', () => {
     service.setEditModel(editModel)
   }
 
+  /**
+   * NEW WORKFLOW: Prepare multi-piece jigsaw puzzle
+   * Step 1-3 of your envisioned workflow
+   */
+  async function prepareMultiPieceJigsaw(imageBase64: string) {
+    isAnalyzing.value = true
+    isGeneratingPrompt.value = true
+    error.value = null
+    currentImage.value = imageBase64
+
+    try {
+      const result = await service.prepareMultiPieceJigsaw(imageBase64)
+
+      currentAnalysis.value = result.analysis
+      puzzlePieces.value = result.subjects.map((subject) => ({
+        id: subject.id,
+        subjectId: subject.id,
+        prompt: subject.generatedPrompt || '',
+        status: 'pending' as const,
+      }))
+
+      return result
+    } catch (err) {
+      error.value = 'Failed to prepare multi-piece jigsaw'
+      console.error('Prepare multi-piece jigsaw error:', err)
+      throw err
+    } finally {
+      isAnalyzing.value = false
+      isGeneratingPrompt.value = false
+    }
+  }
+
+  /**
+   * NEW WORKFLOW: Generate all puzzle pieces using ComfyUI
+   * Step 4 of your envisioned workflow - calls ComfyUI X times
+   */
+  async function generateAllPuzzlePieces(uploadedFilename: string) {
+    if (puzzlePieces.value.length === 0) {
+      error.value = 'No puzzle pieces to generate. Run prepareMultiPieceJigsaw first.'
+      return
+    }
+
+    const comfyUIStore = useComfyUIStore()
+    isGeneratingPieces.value = true
+    error.value = null
+    generationProgress.value = { current: 0, total: puzzlePieces.value.length }
+
+    const results: JigsawPiece[] = []
+
+    try {
+      for (let i = 0; i < puzzlePieces.value.length; i++) {
+        const piece = puzzlePieces.value[i]
+        piece.status = 'generating'
+        generationProgress.value.current = i + 1
+
+        try {
+          // Call ComfyUI for each subject/piece
+          const result = await comfyUIStore.runQwenImageEdit({
+            imageFilename: uploadedFilename,
+            positivePrompt: piece.prompt,
+            negativePrompt: 'blurry, low quality, distorted',
+            seed: Math.floor(Math.random() * 1000000),
+            steps: 4,
+          })
+
+          if (result.success && result.images && result.images.length > 0) {
+            piece.status = 'complete'
+            piece.imageUrl = result.images[0]
+          } else {
+            piece.status = 'error'
+            piece.error = 'No image generated'
+          }
+        } catch (err) {
+          piece.status = 'error'
+          piece.error = err instanceof Error ? err.message : 'Generation failed'
+          console.error(`Failed to generate piece ${i + 1}:`, err)
+        }
+
+        results.push(piece)
+      }
+
+      puzzlePieces.value = results
+      return results
+    } catch (err) {
+      error.value = 'Failed to generate puzzle pieces'
+      console.error('Generate all pieces error:', err)
+      throw err
+    } finally {
+      isGeneratingPieces.value = false
+    }
+  }
+
   return {
     service,
     isAnalyzing,
@@ -213,6 +319,12 @@ export const useJigsawBridgeStore = defineStore('jigsawBridge', () => {
     hasSuggestions,
     hasPeople,
     peopleCount,
+    subjectsWithPrompts,
+    hasPuzzlePieces,
+    completedPieces,
+    puzzlePieces,
+    isGeneratingPieces,
+    generationProgress,
     analyzeJigsaw,
     generateEditPrompt,
     generateJigsawCutPattern,
@@ -220,5 +332,7 @@ export const useJigsawBridgeStore = defineStore('jigsawBridge', () => {
     processJigsaw,
     reset,
     setModels,
+    prepareMultiPieceJigsaw,
+    generateAllPuzzlePieces,
   }
 })

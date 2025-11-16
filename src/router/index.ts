@@ -12,7 +12,7 @@ const router = createRouter({
     {
       path: '/jigsaw-bridge',
       name: 'jigsaw-bridge',
-      component: () => import('../views/JigsawBridgeView.vue'),
+      component: () => import('../views/JigsawBridgeViewNew.vue'),
     },
     {
       path: '/ollama',
