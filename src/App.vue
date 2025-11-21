@@ -58,12 +58,7 @@ const menuOpen = ref(false)
           >
             Jigsaw Bridge
           </RouterLink>
-          <RouterLink
-            to="/ollama"
-            class="px-3 py-2 text-sm lg:text-base rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-          >
-            Ollama Vision
-          </RouterLink>
+
           <RouterLink
             to="/comfyui"
             class="px-3 py-2 text-sm lg:text-base rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
@@ -96,13 +91,7 @@ const menuOpen = ref(false)
           >
             Jigsaw Bridge
           </RouterLink>
-          <RouterLink
-            to="/ollama"
-            @click="menuOpen = false"
-            class="px-3 py-2 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-          >
-            Ollama Vision
-          </RouterLink>
+
           <RouterLink
             to="/comfyui"
             @click="menuOpen = false"

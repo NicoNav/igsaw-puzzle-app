@@ -4,12 +4,9 @@ import { useComfyUIStore } from '@/stores/comfyui'
 
 const comfyUIStore = useComfyUIStore()
 const promptText = ref('')
-const negativePromptText = ref('')
 const uploadedFile = ref<File | null>(null)
 const uploadedFilename = ref<string>('')
 const fileInput = ref<HTMLInputElement | null>(null)
-const seed = ref<number>(Math.floor(Math.random() * 1000000))
-const steps = ref<number>(4)
 
 onMounted(async () => {
   await comfyUIStore.checkConnection()
@@ -39,7 +36,7 @@ const uploadImage = async () => {
 
 const generateImage = async () => {
   if (!promptText.value.trim()) {
-    alert('Please enter a prompt')
+    alert('Please enter a prompt (number of points)')
     return
   }
 
@@ -49,12 +46,9 @@ const generateImage = async () => {
   }
 
   try {
-    const result = await comfyUIStore.runQwenImageEdit({
+    const result = await comfyUIStore.runSAM3Segmentation({
       imageFilename: uploadedFilename.value,
-      positivePrompt: promptText.value,
-      negativePrompt: negativePromptText.value || undefined,
-      seed: seed.value,
-      steps: steps.value,
+      prompt: promptText.value,
     })
     console.log('Generation complete:', result)
     alert(`Generated ${result.images.length} image(s)!`)
@@ -70,10 +64,6 @@ const interruptGeneration = async () => {
 
 const clearImages = () => {
   comfyUIStore.clearGeneratedImages()
-}
-
-const randomizeSeed = () => {
-  seed.value = Math.floor(Math.random() * 10000000)
 }
 </script>
 
@@ -112,49 +102,15 @@ const randomizeSeed = () => {
       </div>
 
       <div class="section">
-        <h2>Generate Image with Qwen Edit</h2>
+        <h2>Generate Image with SAM3</h2>
         
-        <label>Positive Prompt (what you want):</label>
+        <label>Prompt (Number of Points):</label>
         <textarea
           v-model="promptText"
-          placeholder="Enter your prompt for what to generate/edit..."
+          placeholder="Enter number of points (e.g. 10)"
           :disabled="!comfyUIStore.isConnected"
           rows="3"
         ></textarea>
-
-        <label>Negative Prompt (what to avoid - optional):</label>
-        <textarea
-          v-model="negativePromptText"
-          placeholder="Enter what you want to avoid (optional)..."
-          :disabled="!comfyUIStore.isConnected"
-          rows="2"
-        ></textarea>
-
-        <div class="param-row">
-          <div class="param">
-            <label>Seed:</label>
-            <div class="seed-control">
-              <input
-                v-model.number="seed"
-                type="number"
-                :disabled="!comfyUIStore.isConnected"
-              />
-              <button @click="randomizeSeed" :disabled="!comfyUIStore.isConnected" class="btn-small">
-                🎲
-              </button>
-            </div>
-          </div>
-          <div class="param">
-            <label>Steps:</label>
-            <input
-              v-model.number="steps"
-              type="number"
-              min="1"
-              max="50"
-              :disabled="!comfyUIStore.isConnected"
-            />
-          </div>
-        </div>
 
         <p v-if="comfyUIStore.currentProgress" class="progress-message">
           {{ comfyUIStore.currentProgress }}
@@ -165,7 +121,7 @@ const randomizeSeed = () => {
             @click="generateImage"
             :disabled="!comfyUIStore.isConnected || comfyUIStore.isProcessing || !uploadedFilename"
           >
-            {{ comfyUIStore.isProcessing ? 'Generating...' : 'Generate with Qwen Edit' }}
+            {{ comfyUIStore.isProcessing ? 'Generating...' : 'Generate with SAM3' }}
           </button>
           <button
             @click="interruptGeneration"
@@ -198,142 +154,87 @@ const randomizeSeed = () => {
     <div class="info-box">
       <h3>ℹ️ About ComfyUI Integration</h3>
       <p>
-        This view uses the Qwen Image Edit workflow to edit/transform images using AI.
-        Make sure ComfyUI is running with the required Qwen models installed.
+        This view uses the SAM3 workflow to segment images.
+        Make sure ComfyUI is running with the required SAM3 models installed.
       </p>
-      <p>
-        <strong>Workflow:</strong>
-      </p>
-      <ol>
-        <li>Upload an image to ComfyUI</li>
-        <li>Enter a prompt describing what you want to generate/edit</li>
-        <li>Optionally add a negative prompt for what to avoid</li>
-        <li>Click "Generate with Qwen Edit"</li>
-        <li>View results below when processing completes</li>
-      </ol>
     </div>
   </div>
 </template>
 
 <style scoped>
 .comfyui-view {
-  padding: 2rem;
   max-width: 1200px;
   margin: 0 auto;
+  padding: 2rem;
 }
 
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: 2rem;
 }
 
 .connection-status {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 1rem;
 }
 
 .status-indicator {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  background-color: #ff4444;
+  background-color: #ef4444;
 }
 
 .status-indicator.connected {
-  background-color: #44ff44;
-}
-
-.queue-info {
-  padding: 1rem;
-  background-color: var(--color-background-soft);
-  border-radius: 8px;
-  margin-bottom: 1rem;
+  background-color: #22c55e;
 }
 
 .controls {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 2rem;
+  margin-bottom: 2rem;
 }
 
 .section {
-  border: 1px solid var(--color-border);
+  background: #f8fafc;
+  padding: 1.5rem;
   border-radius: 8px;
-  padding: 1rem;
+  border: 1px solid #e2e8f0;
 }
 
 .section h2 {
   margin-top: 0;
   margin-bottom: 1rem;
+  font-size: 1.25rem;
 }
 
 .file-input {
   display: block;
-  margin-bottom: 0.5rem;
-  padding: 0.5rem;
+  margin-bottom: 1rem;
+  width: 100%;
 }
 
 textarea {
   width: 100%;
-  min-height: 100px;
-  padding: 0.75rem;
-  border: 1px solid var(--color-border);
+  padding: 0.5rem;
+  border: 1px solid #cbd5e1;
   border-radius: 4px;
+  margin-bottom: 1rem;
   font-family: inherit;
-  resize: vertical;
-  margin-bottom: 0.5rem;
-}
-
-.button-group {
-  display: flex;
-  gap: 0.5rem;
-}
-
-button {
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 4px;
-  background-color: var(--color-primary, #42b983);
-  color: white;
-  cursor: pointer;
-  font-size: 1rem;
-}
-
-button:hover {
-  opacity: 0.9;
-}
-
-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-label {
-  display: block;
-  margin-bottom: 0.5rem;
-  margin-top: 1rem;
-  font-weight: 500;
 }
 
 .param-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
   gap: 1rem;
-  margin-top: 1rem;
+  margin-bottom: 1rem;
 }
 
-.param label {
-  margin-top: 0;
-}
-
-.param input {
-  width: 100%;
-  padding: 0.5rem;
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
+.param {
+  flex: 1;
 }
 
 .seed-control {
@@ -345,71 +246,93 @@ label {
   flex: 1;
 }
 
-.success-message {
-  color: #28a745;
-  margin-top: 0.5rem;
-  font-size: 0.875rem;
+input[type="number"] {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
 }
 
-.progress-message {
-  color: #007bff;
-  margin-top: 0.5rem;
-  font-style: italic;
-}
-
-.btn-small {
+button {
+  background-color: #3b82f6;
+  color: white;
+  border: none;
   padding: 0.5rem 1rem;
-  font-size: 0.875rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+button:disabled {
+  background-color: #94a3b8;
+  cursor: not-allowed;
 }
 
 .btn-secondary {
-  background-color: #6c757d;
+  background-color: #64748b;
+}
+
+.btn-small {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+}
+
+.button-group {
+  display: flex;
+  gap: 1rem;
+}
+
+.success-message {
+  color: #16a34a;
+  margin-top: 0.5rem;
+}
+
+.progress-message {
+  color: #2563eb;
+  margin-bottom: 1rem;
+  font-weight: 500;
+}
+
+.error-message {
+  background-color: #fee2e2;
+  color: #991b1b;
+  padding: 1rem;
+  border-radius: 4px;
+  margin-bottom: 2rem;
 }
 
 .generated-images {
   margin-top: 2rem;
-  padding: 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
 }
 
 .image-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 1rem;
   margin-bottom: 1rem;
 }
 
 .image-grid img {
   width: 100%;
-  border-radius: 4px;
-}
-
-.error-message {
-  margin-top: 1rem;
-  padding: 1rem;
-  background-color: #ffebee;
-  color: #c62828;
-  border-radius: 4px;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
 }
 
 .info-box {
   margin-top: 2rem;
   padding: 1rem;
-  background-color: #e3f2fd;
+  background-color: #eff6ff;
   border-radius: 8px;
-  border-left: 4px solid #2196f3;
+  border-left: 4px solid #3b82f6;
 }
 
 .info-box h3 {
   margin-top: 0;
-  color: #1976d2;
+  color: #1e40af;
 }
 
-.info-box code {
-  background-color: rgba(0, 0, 0, 0.1);
-  padding: 0.2rem 0.4rem;
-  border-radius: 3px;
-  font-family: monospace;
+.info-box p {
+  margin-bottom: 0;
+  color: #1e3a8a;
 }
 </style>

@@ -15,11 +15,6 @@ const router = createRouter({
       component: () => import('../views/JigsawBridgeViewNew.vue'),
     },
     {
-      path: '/ollama',
-      name: 'ollama',
-      component: () => import('../views/OllamaView.vue'),
-    },
-    {
       path: '/comfyui',
       name: 'comfyui',
       component: () => import('../views/ComfyUIView.vue'),

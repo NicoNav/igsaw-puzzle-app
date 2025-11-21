@@ -5,10 +5,9 @@ import {
   waitUntilFinishedWS,
   uploadImageToComfy,
   buildAssetUrls,
-  waitForOutputs,
   getHistory as getComfyHistory,
 } from '@/services/comfy'
-import editQwenWorkflow from '@/assets/edit_qwen_wf.json'
+import sam3Workflow from '@/assets/SAM3-WORKFLOW.json'
 
 export const useComfyUIStore = defineStore('comfyui', () => {
   const isConnected = ref(false)
@@ -64,6 +63,10 @@ export const useComfyUIStore = defineStore('comfyui', () => {
     }
   }
 
+  function clearGeneratedImages() {
+    generatedImages.value = []
+  }
+
   /**
    * Upload an image to ComfyUI
    */
@@ -79,116 +82,61 @@ export const useComfyUIStore = defineStore('comfyui', () => {
   }
 
   /**
-   * Run Qwen Image Edit workflow
-   * This uses the edit_qwen_wf.json workflow
+   * Run SAM3 Segmentation workflow
+   * Uses SAM3-WORKFLOW.json to segment objects based on text prompt
    */
-  async function runQwenImageEdit(options: {
-    imageFilename: string // filename in ComfyUI input folder (e.g., "my-photo.jpg")
-    positivePrompt: string // what you want to generate/edit
-    negativePrompt?: string // what to avoid (optional)
-    seed?: number // random seed for reproducibility (optional)
-    steps?: number // number of inference steps (optional, default: 4)
+  async function runSAM3Segmentation(options: {
+    imageFilename: string
+    prompt: string
   }): Promise<{ promptId: string; images: string[] }> {
     isProcessing.value = true
     error.value = null
-    currentProgress.value = 'Starting...'
+    currentProgress.value = 'Starting SAM3 Segmentation...'
 
     try {
-      // Clone the workflow - cast to the workflow structure
-      const workflow = JSON.parse(JSON.stringify(editQwenWorkflow)) as {
-        '78'?: { inputs?: { image?: string } }
-        '115:111'?: { inputs?: { prompt?: string } }
-        '115:110'?: { inputs?: { prompt?: string } }
-        '115:3'?: { inputs?: { seed?: number; steps?: number } }
-        [key: string]: unknown
+      // Clone the workflow
+      const workflow = JSON.parse(JSON.stringify(sam3Workflow))
+
+      // Update Node 3: Load Image
+      if (workflow['3'] && workflow['3'].inputs) {
+        workflow['3'].inputs.image = options.imageFilename
       }
 
-      // REQUIRED: Update the image filename
-      // Node 78 - LoadImage: Set the input image filename
-      if (workflow['78']?.inputs) {
-        workflow['78'].inputs.image = options.imageFilename
+      // Update Node 4: SAM3 Segmentation
+      if (workflow['4'] && workflow['4'].inputs) {
+        workflow['4'].inputs.text_prompt = options.prompt
       }
 
-      // REQUIRED: Update the positive prompt
-      // Node 115:111 - TextEncodeQwenImageEditPlus: Set what you want to generate
-      if (workflow['115:111']?.inputs) {
-        workflow['115:111'].inputs.prompt = options.positivePrompt
-      }
-
-      // OPTIONAL: Update the negative prompt
-      // Node 115:110 - TextEncodeQwenImageEditPlus: Set what to avoid
-      if (workflow['115:110']?.inputs) {
-        workflow['115:110'].inputs.prompt = options.negativePrompt || ''
-      }
-
-      // OPTIONAL: Update sampler settings
-      // Node 115:3 - KSampler: Control generation parameters
-      if (workflow['115:3']?.inputs) {
-        if (options.seed !== undefined) {
-          workflow['115:3'].inputs.seed = options.seed
-        }
-        if (options.steps !== undefined) {
-          workflow['115:3'].inputs.steps = options.steps
-        }
-      }
-
-      // Queue the prompt
-      currentProgress.value = 'Queuing prompt...'
+      // Execute
       const { prompt_id } = await queuePromptWS(workflow)
-
-      // Wait for execution to finish
       currentProgress.value = 'Processing...'
-      await waitUntilFinishedWS(prompt_id, (nodeId) => {
-        currentProgress.value = `Processing node: ${nodeId}`
-      })
 
-      // Get the outputs
-      currentProgress.value = 'Fetching results...'
-      const outputs = await waitForOutputs(prompt_id)
+      // Wait for completion
+      await waitUntilFinishedWS(prompt_id)
 
-      // Build image URLs
-      const assets = buildAssetUrls(outputs)
-      const images = assets.filter((a) => a.type === 'image').map((a) => a.url)
+      // Get outputs
+      const history = await getComfyHistory(prompt_id)
+      const outputs = history?.[prompt_id]?.outputs
+      
+      const images: string[] = []
+      if (outputs) {
+        const assets = buildAssetUrls(outputs)
+        // Filter for Node 5 (PreviewImage)
+        const node5Assets = assets.filter(a => a.node === '5' && a.type === 'image')
+        images.push(...node5Assets.map(a => a.url))
+      }
 
-      // Store the generated images
-      generatedImages.value.push(...images)
-
-      currentProgress.value = 'Complete!'
+      generatedImages.value = images
       return { promptId: prompt_id, images }
+
     } catch (err) {
-      error.value = 'Failed to run Qwen Image Edit'
-      console.error('Qwen Image Edit error:', err)
+      error.value = 'Failed to run SAM3 segmentation'
+      console.error('SAM3 error:', err)
       throw err
     } finally {
       isProcessing.value = false
       currentProgress.value = ''
     }
-  }
-
-  /**
-   * Get history for a specific prompt
-   */
-  async function getHistory(promptId: string) {
-    try {
-      const result = await getComfyHistory(promptId)
-      if (result) {
-        history.value = result
-      }
-      return result
-    } catch (err) {
-      error.value = 'Failed to get history'
-      console.error('Get history error:', err)
-      throw err
-    }
-  }
-
-  function clearGeneratedImages() {
-    generatedImages.value.forEach((url) => {
-      if (url.startsWith('blob:')) {
-        URL.revokeObjectURL(url)
-      }
-    })
-    generatedImages.value = []
   }
 
   return {
@@ -204,9 +152,8 @@ export const useComfyUIStore = defineStore('comfyui', () => {
     checkConnection,
     updateQueue,
     interrupt,
-    uploadImage,
-    runQwenImageEdit,
-    getHistory,
     clearGeneratedImages,
+    uploadImage,
+    runSAM3Segmentation,
   }
 })

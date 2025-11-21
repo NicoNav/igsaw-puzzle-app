@@ -1,0 +1,79 @@
+{
+  "1": {
+    "inputs": {
+      "model_source": "auto (API)",
+      "device": "cuda"
+    },
+    "class_type": "SAM3ModelLoader",
+    "_meta": {
+      "title": "SAM3 Model Loader"
+    }
+  },
+  "2": {
+    "inputs": {
+      "mode": "full_image",
+      "normalize": true,
+      "image": [
+        "3",
+        0
+      ]
+    },
+    "class_type": "SAM3DepthMap",
+    "_meta": {
+      "title": "SAM3 Depth Map"
+    }
+  },
+  "3": {
+    "inputs": {
+      "image": "PXL_20220904_210956267.PORTRAIT.jpg"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "4": {
+    "inputs": {
+      "mode": "text",
+      "text_prompt": "kid",
+      "num_points": 5,
+      "threshold": 0.5,
+      "sam3_model": [
+        "1",
+        0
+      ],
+      "image": [
+        "3",
+        0
+      ]
+    },
+    "class_type": "SAM3Segmentation",
+    "_meta": {
+      "title": "SAM3 Segmentation"
+    }
+  },
+  "5": {
+    "inputs": {
+      "images": [
+        "4",
+        1
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Preview Image"
+    }
+  },
+  "6": {
+    "inputs": {
+      "images": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Preview Image"
+    }
+  }
+}

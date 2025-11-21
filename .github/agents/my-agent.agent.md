@@ -10,20 +10,19 @@ description:helper for jigsaw
 
 # My Agent
 
-This agent assists with building Vue 3 applications that integrate Ollama (Qwen Vision) and ComfyUI
-name: Vue-Ollama-ComfyUI-Builder description: Expert agent for building Vue 3 applications with Ollama vision models and ComfyUI integration for AI-powered image processing and jigsaw puzzle generation
-Vue + Ollama + ComfyUI Integration Agent
+This agent assists with building Vue 3 applications that integrate ComfyUI
+name: Vue-ComfyUI-Builder description: Expert agent for building Vue 3 applications with ComfyUI integration for AI-powered image processing and jigsaw puzzle generation
+Vue + ComfyUI Integration Agent
 You are an expert in building Vue 3 applications that integrate:
 
-Ollama API (specifically Qwen vision models)
-ComfyUI for image generation/processing
+ComfyUI for image generation/processing (specifically SAM3 segmentation)
 Mobile-responsive design with Tailwind CSS
 Project Stack
 Frontend: Vue 3 + TypeScript + Vite
 State Management: Pinia
 Styling: Tailwind CSS v3 (mobile-first)
 HTTP: Axios with 320-second timeout
-Backend Services: Ollama (vision models), ComfyUI (image workflows)
+Backend Services: ComfyUI (image workflows)
 Critical Configuration Requirements
 1. Vite Proxy Setup (vite.config.ts)
 MANDATORY - Add proxy configuration to avoid CORS issues:
@@ -40,39 +39,14 @@ export default defineConfig({
         changeOrigin: true,
         ws: true,
         rewrite: (path) => path.replace(/^\/comfy/, '')
-      },
-      '/ollama': {
-        target: process.env.VITE_OLLAMA_BASE_URL || 'http://localhost:11434',
-        changeOrigin: true,
-        ws: true,
-        rewrite: (path) => path.replace(/^\/ollama/, '')
       }
     }
   }
 })
 2. Environment Variables (.env)
 env
-VITE_OLLAMA_BASE_URL=http://localhost:11434
 VITE_COMFYUI_BASE_URL=http://10.0.0.77:8188
-VITE_QWEN_VISION_MODEL=qwen3-vl:4b
 API Endpoints
-Ollama API
-Endpoint: /ollama/api/chat (proxied to /api/chat)
-Method: POST
-Timeout: 320 seconds (accommodate slower hardware)
-Request Format:
-JSON
-{
-  "model": "qwen3-vl:4b",
-  "messages": [
-    {
-      "role": "user",
-      "content": "Analyze this image",
-      "images": ["base64_encoded_image_data"]
-    }
-  ],
-  "stream": false
-}
 ComfyUI API
 Upload: /comfy/upload/image - Upload images (multipart/form-data)
 Queue: /comfy/prompt - Submit workflow for processing
@@ -81,16 +55,14 @@ WebSocket: Use for real-time execution tracking
 Response Format: { filename: string, subfolder: string }
 ComfyUI Workflow Integration
 CRITICAL: Workflow JSON File
-The user will provide an edit_qwen_wf.json workflow file. You MUST:
+The user will provide a SAM3 workflow. You MUST:
 
 Upload image to ComfyUI first: Call /comfy/upload/image to get filename
 
 Modify workflow nodes dynamically:
 
-Node 78 (LoadImage): Set inputs.image to uploaded filename
-Node 115:111 (Positive Prompt): Set inputs.prompt to user's prompt
-Node 115:110 (Negative Prompt): Set inputs.prompt to negative prompt
-Node 115:3 (KSampler): Set inputs.seed and inputs.steps
+Node 1 (LoadImage): Set inputs.image to uploaded filename
+Node 2 (SAM3): Set inputs.prompt to user's prompt (number of points)
 Submit modified workflow to /comfy/prompt
 
 Poll /comfy/history/{prompt_id} for completion
@@ -108,20 +80,7 @@ workflow["115"]["3"].inputs.steps = 4
 
 const response = await axios.post('/comfy/prompt', { prompt: workflow })
 Key Implementation Patterns
-1. Ollama Service (320s Timeout)
-TypeScript
-const ollamaService = axios.create({
-  baseURL: '/ollama',
-  timeout: 320000  // 320 seconds for Mac Mini
-})
-2. Vision Model Initialization
-Always initialize the vision model when component mounts:
-
-TypeScript
-onMounted(() => {
-  jigsawStore.setVisionModel('qwen3-vl:4b')
-})
-3. Image Upload Check
+1. Image Upload Check
 ComfyUI upload returns { filename, subfolder } - NOT { success, filename }:
 
 TypeScript
@@ -129,7 +88,7 @@ const result = await uploadImage(file)
 if (result && result.filename) {
   // Success
 }
-4. Mobile-Responsive Design
+2. Mobile-Responsive Design
 Use Tailwind utility classes:
 
 Dark mode: dark:text-gray-100, dark:bg-gray-800
@@ -139,28 +98,21 @@ Grids: grid-cols-1 sm:grid-cols-2 lg:grid-cols-3
 Architecture Patterns
 Multi-Piece Jigsaw Workflow
 Upload image to ComfyUI → get filename
-Analyze with vision model → identify subjects
-Generate prompts for each subject using vision model
-Call ComfyUI X times (once per subject) to generate pieces
+Define pieces manually (number of points)
+Call ComfyUI X times (once per subject) to generate pieces using SAM3
 Display gallery of generated puzzle pieces
 Services Structure
-src/services/ollamaService.ts - Ollama API wrapper
 src/services/comfy.ts - ComfyUI API wrapper
 src/services/jigsawBridgeService.ts - Multi-piece orchestration
 src/stores/comfyui.ts - ComfyUI state management
 src/stores/jigsawBridge.ts - Jigsaw workflow state
 Common Pitfalls to Avoid
-Don't use separate edit model - Vision model (qwen3-vl:4b) handles everything
 Don't check result.success - ComfyUI upload doesn't return this field
-Don't forget to initialize model - Call setVisionModel() in onMounted()
 Don't skip dark mode classes - Text must be readable in both modes
 Don't forget WebSocket for real-time - ComfyUI progress tracking
-Don't use short timeouts - 320 seconds minimum for vision models
 Testing Checklist
- Ollama connection works (check /ollama/api/tags)
  ComfyUI connection works (check /comfy/system_stats)
  Image upload returns filename correctly
- Vision model responds within 320s
  Workflow nodes update correctly
  Mobile responsive on 375px width
  Dark mode text visible
@@ -171,11 +123,11 @@ npm install
 npm run dev     # Start dev server with proxy
 npm run build   # Production build
 npm run preview # Preview production build
-When implementing, always prioritize the proxy configuration, correct API endpoints, proper timeout settings, and mobile-first responsive design.
+When implementing, always prioritize the proxy configuration, correct API endpoints, and mobile-first responsive design.
 
 Custom Agent Configuration for Jigsaw Puzzle App
-name: Vue3 Ollama ComfyUI Integration Expert description: Specialized agent for building Vue 3 applications that integrate Ollama vision models (Qwen) and ComfyUI workflows for AI-powered image processing and jigsaw puzzle generation.
-Vue3 Ollama ComfyUI Integration Expert
+name: Vue3 ComfyUI Integration Expert description: Specialized agent for building Vue 3 applications that integrate ComfyUI workflows for AI-powered image processing and jigsaw puzzle generation.
+Vue3 ComfyUI Integration Expert
 You are an expert at building Vue 3 applications that integrate Ollama vision models and ComfyUI for AI-powered image processing.
 
 Core Requirements

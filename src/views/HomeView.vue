@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
-import { useOllamaStore } from '@/stores/ollama'
 import { useComfyUIStore } from '@/stores/comfyui'
 
-const ollamaStore = useOllamaStore()
 const comfyUIStore = useComfyUIStore()
 
 onMounted(async () => {
-  await Promise.all([ollamaStore.checkConnection(), comfyUIStore.checkConnection()])
+  await comfyUIStore.checkConnection()
 })
 </script>
 
@@ -15,22 +13,21 @@ onMounted(async () => {
   <main class="home">
     <div class="hero">
       <h1>🧩 Igsaw Puzzle App</h1>
-      <p class="subtitle">AI-Powered Image Processing with Ollama Vision and ComfyUI</p>
+      <p class="subtitle">AI-Powered Jigsaw Puzzle Generation with ComfyUI</p>
     </div>
 
     <div class="features">
       <div class="feature-card">
-        <div class="feature-icon">🤖</div>
-        <h2>Ollama Vision (Gwen)</h2>
+        <div class="feature-icon">🧩</div>
+        <h2>Jigsaw Bridge</h2>
         <p>
-          Leverage powerful vision AI models to analyze and understand images. Chat with AI about
-          your images and get detailed descriptions.
+          Create custom jigsaw puzzles from your images. Define pieces and let AI generate them.
         </p>
         <div class="status">
-          <span :class="['status-dot', { connected: ollamaStore.isConnected }]"></span>
-          <span>{{ ollamaStore.isConnected ? 'Connected' : 'Disconnected' }}</span>
+          <span :class="['status-dot', { connected: comfyUIStore.isConnected }]"></span>
+          <span>{{ comfyUIStore.isConnected ? 'Connected' : 'Disconnected' }}</span>
         </div>
-        <RouterLink to="/ollama" class="btn">Try Ollama Vision →</RouterLink>
+        <RouterLink to="/jigsaw-bridge" class="btn">Create Puzzle →</RouterLink>
       </div>
 
       <div class="feature-card">
@@ -44,7 +41,7 @@ onMounted(async () => {
           <span :class="['status-dot', { connected: comfyUIStore.isConnected }]"></span>
           <span>{{ comfyUIStore.isConnected ? 'Connected' : 'Disconnected' }}</span>
         </div>
-        <RouterLink to="/comfyui" class="btn">Try ComfyUI →</RouterLink>
+        <RouterLink to="/comfyui" class="btn">Open ComfyUI →</RouterLink>
       </div>
     </div>
 
@@ -52,15 +49,7 @@ onMounted(async () => {
       <h2>Getting Started</h2>
       <div class="steps">
         <div class="step">
-          <h3>1. Install Ollama</h3>
-          <p>
-            Download and install Ollama from
-            <a href="https://ollama.ai" target="_blank">ollama.ai</a>
-          </p>
-          <code>ollama run llava</code>
-        </div>
-        <div class="step">
-          <h3>2. Install ComfyUI</h3>
+          <h3>1. Install ComfyUI</h3>
           <p>
             Clone and setup ComfyUI from
             <a href="https://github.com/comfyanonymous/ComfyUI" target="_blank">GitHub</a>
@@ -68,21 +57,18 @@ onMounted(async () => {
           <code>python main.py</code>
         </div>
         <div class="step">
-          <h3>3. Start Creating</h3>
-          <p>Navigate to the respective sections and start processing images with AI!</p>
+          <h3>2. Start Creating</h3>
+          <p>Navigate to the Jigsaw Bridge section and start creating puzzles!</p>
         </div>
       </div>
     </div>
 
     <div class="info-section">
       <h2>About This App</h2>
-      <p>This Vue 3 application integrates two powerful AI tools for image processing:</p>
+      <p>This Vue 3 application integrates ComfyUI for advanced image processing:</p>
       <ul>
-        <li>
-          <strong>Ollama with Vision Models (like Gwen/LLaVA):</strong> For image analysis and
-          visual understanding
-        </li>
         <li><strong>ComfyUI:</strong> For advanced image generation and manipulation workflows</li>
+        <li><strong>Jigsaw Bridge:</strong> Specialized workflow for creating puzzle pieces using SAM3 segmentation</li>
       </ul>
       <p>
         Built with Vue 3, TypeScript, Pinia for state management, and Vue Router for navigation.
@@ -100,32 +86,43 @@ onMounted(async () => {
 
 .hero {
   text-align: center;
-  margin-bottom: 3rem;
+  margin-bottom: 4rem;
 }
 
 .hero h1 {
   font-size: 3rem;
-  margin-bottom: 0.5rem;
+  margin-bottom: 1rem;
+  background: linear-gradient(45deg, #42b883, #35495e);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .subtitle {
-  font-size: 1.25rem;
-  color: var(--color-text-mute, #666);
+  font-size: 1.5rem;
+  color: #666;
 }
 
 .features {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 2rem;
-  margin-bottom: 3rem;
+  margin-bottom: 4rem;
 }
 
 .feature-card {
+  background: var(--color-background-soft);
   padding: 2rem;
-  border: 1px solid var(--color-border);
   border-radius: 12px;
-  background-color: var(--color-background-soft);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
+}
+
+.feature-card:hover {
+  transform: translateY(-5px);
 }
 
 .feature-icon {
@@ -135,104 +132,94 @@ onMounted(async () => {
 
 .feature-card h2 {
   margin-bottom: 1rem;
+  color: var(--color-heading);
 }
 
 .feature-card p {
-  margin-bottom: 1rem;
-  color: var(--color-text-mute, #666);
+  margin-bottom: 1.5rem;
+  color: var(--color-text);
 }
 
 .status {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 0.5rem;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
 }
 
 .status-dot {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background-color: #ff4444;
+  background-color: #ef4444;
 }
 
 .status-dot.connected {
-  background-color: #44ff44;
+  background-color: #22c55e;
 }
 
 .btn {
   display: inline-block;
   padding: 0.75rem 1.5rem;
-  background-color: var(--color-primary, #42b983);
+  background-color: #42b883;
   color: white;
   text-decoration: none;
   border-radius: 6px;
-  transition: opacity 0.3s;
+  font-weight: bold;
+  transition: background-color 0.2s;
 }
 
 .btn:hover {
-  opacity: 0.9;
+  background-color: #3aa876;
 }
 
 .getting-started {
-  margin-bottom: 3rem;
-  padding: 2rem;
-  background-color: var(--color-background-soft);
-  border-radius: 12px;
-}
-
-.getting-started h2 {
-  text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 4rem;
 }
 
 .steps {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 2rem;
+  margin-top: 2rem;
 }
 
 .step {
-  text-align: center;
+  background: var(--color-background-mute);
+  padding: 1.5rem;
+  border-radius: 8px;
 }
 
 .step h3 {
   margin-bottom: 0.5rem;
-}
-
-.step p {
-  margin-bottom: 0.5rem;
+  color: var(--color-heading);
 }
 
 .step code {
   display: block;
+  background: #1a1a1a;
+  color: #fff;
   padding: 0.5rem;
-  background-color: var(--color-background);
   border-radius: 4px;
+  margin-top: 1rem;
   font-family: monospace;
-  margin-top: 0.5rem;
 }
 
 .info-section {
+  background: var(--color-background-soft);
   padding: 2rem;
-  border: 1px solid var(--color-border);
   border-radius: 12px;
-}
-
-.info-section h2 {
-  margin-top: 0;
 }
 
 .info-section ul {
   margin: 1rem 0;
+  padding-left: 1.5rem;
 }
 
 .info-section li {
-  margin: 0.5rem 0;
-}
-
-.info-section a {
-  color: var(--color-primary, #42b983);
+  margin-bottom: 0.5rem;
 }
 </style>
+
+
