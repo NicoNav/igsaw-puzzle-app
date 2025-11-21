@@ -13,7 +13,6 @@ const selectedImageDisplay = ref<string | null>(null)
 const uploadedFilename = ref<string | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 const visionModel = ref('qwen3-vl:4b')
-const editModel = ref('qwen2.5')
 
 // Workflow modes
 const workflowMode = ref<'multi-piece' | 'single-edit'>('multi-piece')
@@ -22,9 +21,8 @@ const currentStep = ref<1 | 2 | 3 | 4 | 5>(1)
 onMounted(async () => {
   await ollamaStore.checkConnection()
   await comfyUIStore.checkConnection()
-  // Set the vision and edit models in the store
+  // Set the vision model in the store - no edit model needed
   jigsawStore.setVisionModel(visionModel.value)
-  jigsawStore.setEditModel(editModel.value)
 })
 
 const handleImageUpload = async (event: Event) => {
@@ -121,8 +119,7 @@ const resetWorkflow = () => {
         <input v-model="visionModel" placeholder="qwen2-vl:4b" />
       </div>
       <div class="model-select">
-        <label>Edit Model:</label>
-        <input v-model="editModel" placeholder="qwen2.5" />
+
       </div>
     </div>
 

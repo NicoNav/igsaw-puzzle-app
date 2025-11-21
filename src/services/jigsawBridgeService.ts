@@ -48,20 +48,17 @@ export interface JigsawEditRequest {
 }
 
 /**
- * Bridge service that connects Qwen vision analysis with Qwen edit
- * for context-aware jigsaw puzzle processing
+ * Bridge service that uses Qwen vision for jigsaw puzzle processing
+ * Vision model handles both analysis and instruction-following
  */
 export class JigsawBridgeService {
   private visionService: OllamaService
-  private editService: OllamaService
 
   constructor(
     baseUrl: string = 'http://localhost:11434',
-    visionModel: string = 'qwen2-vl',
-    editModel: string = 'qwen2.5',
+    visionModel: string = 'qwen3-vl:4b',
   ) {
     this.visionService = new OllamaService({ baseUrl, model: visionModel })
-    this.editService = new OllamaService({ baseUrl, model: editModel })
   }
 
   /**
