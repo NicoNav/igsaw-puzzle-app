@@ -16,38 +16,6 @@ export const processPuzzlePiece = (imageUrl: string): Promise<ProcessedPiece> =>
       const canvas = document.createElement('canvas')
       canvas.width = img.width
       canvas.height = img.height
-// ...existing code...
-      if (!found) {
-        // Empty image
-        resolve({
-          croppedUrl: imageUrl,
-          x: 0,
-          y: 0,
-          width: img.width,
-          height: img.height,
-          originalWidth: img.width,
-          originalHeight: img.height
-        })
-        return
-      }
-
-      const width = maxX - minX + 1
-      const height = maxY - minY + 1
-// ...existing code...
-      resolve({
-        croppedUrl: croppedCanvas.toDataURL(),
-        x: minX,
-        y: minY,
-        width,
-        height,
-        originalWidth: img.width,
-        originalHeight: img.height
-      })
-    }
-    img.onerror = (err) => reject(err)
-    img.src = imageUrl
-  })
-}
       const ctx = canvas.getContext('2d')
       if (!ctx) {
         reject(new Error('Could not get canvas context'))
@@ -85,7 +53,9 @@ export const processPuzzlePiece = (imageUrl: string): Promise<ProcessedPiece> =>
           x: 0,
           y: 0,
           width: img.width,
-          height: img.height
+          height: img.height,
+          originalWidth: img.width,
+          originalHeight: img.height
         })
         return
       }
@@ -110,7 +80,9 @@ export const processPuzzlePiece = (imageUrl: string): Promise<ProcessedPiece> =>
         x: minX,
         y: minY,
         width,
-        height
+        height,
+        originalWidth: img.width,
+        originalHeight: img.height
       })
     }
     img.onerror = (err) => reject(err)

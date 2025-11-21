@@ -67,9 +67,11 @@ export const useJigsawBridgeStore = defineStore('jigsawBridge', () => {
           piece.y = processed.y
           piece.width = processed.width
           piece.height = processed.height
-          // Initial position (random or in tray)
-          piece.currentX = 0 
-          piece.currentY = 0
+          piece.originalWidth = processed.originalWidth
+          piece.originalHeight = processed.originalHeight
+          // Initial position (random scatter)
+          piece.currentX = Math.random() * 80
+          piece.currentY = Math.random() * 80
           piece.isPlaced = false
         }
       }

@@ -1,0 +1,66 @@
+{
+  "1": {
+    "inputs": {
+      "image": "PXL_20220904_210956267.PORTRAIT.jpg"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "10": {
+    "inputs": {
+      "mask": [
+        "12",
+        1
+      ]
+    },
+    "class_type": "MaskPreview",
+    "_meta": {
+      "title": "MaskPreview"
+    }
+  },
+  "11": {
+    "inputs": {
+      "mask": [
+        "12",
+        2
+      ]
+    },
+    "class_type": "MaskPreview",
+    "_meta": {
+      "title": "MaskPreview"
+    }
+  },
+  "12": {
+    "inputs": {
+      "prompt": "kid",
+      "threshold": 0.5,
+      "min_width_pixels": 0,
+      "min_height_pixels": 0,
+      "use_video_model": false,
+      "object_ids": "",
+      "image": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "SAM3Segmentation",
+    "_meta": {
+      "title": "SAM3 Segmentation"
+    }
+  },
+  "20": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "12",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  }
+}

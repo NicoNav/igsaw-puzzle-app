@@ -76,8 +76,15 @@ const generatePieces = async () => {
   try {
     currentStep.value = 3
     await jigsawStore.generateAllPuzzlePieces(uploadedFilename.value)
+    
+    // Check if any pieces failed
+    const failedPieces = jigsawStore.puzzlePieces.filter(p => p.status === 'error')
+    if (failedPieces.length > 0) {
+      alert(`Warning: ${failedPieces.length} pieces failed to generate. Check console for details.`)
+    }
   } catch (error) {
     console.error('Failed to generate pieces:', error)
+    alert('Failed to generate pieces. Please check if ComfyUI is running and has the required nodes installed.')
   }
 }
 
@@ -88,14 +95,30 @@ const startGame = async () => {
   }
 }
 
+// ...existing code...
 const onMouseDown = (event: MouseEvent, pieceId: number) => {
   const piece = jigsawStore.puzzlePieces.find(p => p.id === pieceId)
   if (!piece || piece.isPlaced) return
 
+  // Get container dimensions
+  const container = gameBoardRef.value?.querySelector('.game-board-wrapper') as HTMLElement
+  if (!container) return
+  const rect = container.getBoundingClientRect()
+
   draggingPiece.value = pieceId
+  
+  // Calculate offset in percentages relative to container
+  // We need to know where the mouse is relative to the piece's top-left corner
+  // piece.currentX is in %, so convert to pixels first
+  const pieceXPixels = (piece.currentX || 0) / 100 * rect.width
+  const pieceYPixels = (piece.currentY || 0) / 100 * rect.height
+  
+  const mouseXRelative = event.clientX - rect.left
+  const mouseYRelative = event.clientY - rect.top
+  
   dragOffset.value = {
-    x: event.clientX - (piece.currentX || 0),
-    y: event.clientY - (piece.currentY || 0)
+    x: mouseXRelative - pieceXPixels,
+    y: mouseYRelative - pieceYPixels
   }
   
   window.addEventListener('mousemove', onMouseMove)
@@ -108,23 +131,39 @@ const onMouseMove = (event: MouseEvent) => {
   const piece = jigsawStore.puzzlePieces.find(p => p.id === draggingPiece.value)
   if (!piece) return
 
-  piece.currentX = event.clientX - dragOffset.value.x
-  piece.currentY = event.clientY - dragOffset.value.y
+  const container = gameBoardRef.value?.querySelector('.game-board-wrapper') as HTMLElement
+  if (!container) return
+  const rect = container.getBoundingClientRect()
+
+  const mouseXRelative = event.clientX - rect.left
+  const mouseYRelative = event.clientY - rect.top
+
+  const newXPixels = mouseXRelative - dragOffset.value.x
+  const newYPixels = mouseYRelative - dragOffset.value.y
+
+  // Convert back to percentage
+  piece.currentX = (newXPixels / rect.width) * 100
+  piece.currentY = (newYPixels / rect.height) * 100
 }
 
 const onMouseUp = () => {
   if (draggingPiece.value === null) return
 
   const piece = jigsawStore.puzzlePieces.find(p => p.id === draggingPiece.value)
-  if (piece) {
+  if (piece && piece.originalWidth && piece.originalHeight) {
     // Check snap
-    const threshold = 20
+    // Target position in %
+    const targetXPercent = (piece.x || 0) / piece.originalWidth * 100
+    const targetYPercent = (piece.y || 0) / piece.originalHeight * 100
+    
+    const thresholdPercent = 5 // 5% tolerance
+
     if (
-      Math.abs((piece.currentX || 0) - (piece.x || 0)) < threshold &&
-      Math.abs((piece.currentY || 0) - (piece.y || 0)) < threshold
+      Math.abs((piece.currentX || 0) - targetXPercent) < thresholdPercent &&
+      Math.abs((piece.currentY || 0) - targetYPercent) < thresholdPercent
     ) {
-      piece.currentX = piece.x
-      piece.currentY = piece.y
+      piece.currentX = targetXPercent
+      piece.currentY = targetYPercent
       piece.isPlaced = true
     }
   }
@@ -133,6 +172,7 @@ const onMouseUp = () => {
   window.removeEventListener('mousemove', onMouseMove)
   window.removeEventListener('mouseup', onMouseUp)
 }
+// ...existing code...
 
 const resetWorkflow = () => {
   jigsawStore.reset()
@@ -299,34 +339,6 @@ const resetWorkflow = () => {
 
       <div class="actions mt-8">
         <button @click="resetWorkflow" class="btn-secondary">Start Over</button>
-      </div>
-    </div>
-
-    <!-- Step 4: Play Game -->
-    <div v-if="currentStep === 4" class="section">
-      <h2>Step 4: Play Your Game</h2>
-      
-      <div v-if="!jigsawStore.isGameReady" class="text-center py-4">
-        <p class="text-gray-500">Preparing your game. Please wait...</p>
-      </div>
-
-      <div v-else ref="gameBoardRef" class="game-board grid grid-cols-4 gap-2">
-        <div 
-          v-for="piece in jigsawStore.puzzlePieces" 
-          :key="piece.id" 
-          class="game-piece w-full h-32 sm:h-40 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center text-xl font-bold cursor-pointer select-none"
-          :style="{
-            transform: `translate(${piece.currentX}px, ${piece.currentY}px)`,
-            opacity: piece.isPlaced ? 0.5 : 1
-          }"
-          @mousedown="(e) => onMouseDown(e, piece.id)"
-        >
-          {{ piece.prompt }}
-        </div>
-      </div>
-
-      <div class="actions mt-8">
-        <button @click="resetWorkflow" class="btn-secondary">Start Over</button>
         <button 
           v-if="!jigsawStore.isGeneratingPieces && jigsawStore.completedPieces.length > 0"
           @click="startGame" 
@@ -338,7 +350,7 @@ const resetWorkflow = () => {
     </div>
 
     <!-- Step 4: Play Game -->
-    <div v-if="currentStep === 4" class="section game-section">
+    <div v-if="currentStep === 4" class="section game-section" ref="gameBoardRef">
       <div class="flex justify-between items-center mb-4">
         <h2>Step 4: Play Your Game</h2>
         <div class="text-sm text-gray-500">
@@ -362,17 +374,18 @@ const resetWorkflow = () => {
           />
           
           <!-- Pieces Layer -->
-          <div class="pieces-layer absolute inset-0">
+          <!-- pointer-events-none on container lets clicks pass through empty areas -->
+          <div class="pieces-layer absolute inset-0 pointer-events-none">
             <div 
               v-for="piece in jigsawStore.puzzlePieces" 
               :key="piece.id" 
-              class="game-piece absolute cursor-move select-none transition-transform duration-75"
+              class="game-piece absolute cursor-move select-none transition-transform duration-75 pointer-events-auto"
               :class="{ 'placed': piece.isPlaced, 'dragging': draggingPiece === piece.id }"
               :style="{
-                left: `${piece.currentX}px`,
-                top: `${piece.currentY}px`,
-                width: `${piece.width}px`,
-                height: `${piece.height}px`,
+                left: `${piece.currentX}%`,
+                top: `${piece.currentY}%`,
+                width: `${(piece.width || 0) / (piece.originalWidth || 1) * 100}%`,
+                height: `${(piece.height || 0) / (piece.originalHeight || 1) * 100}%`,
                 zIndex: draggingPiece === piece.id ? 100 : (piece.isPlaced ? 1 : 10)
               }"
               @mousedown.prevent="(e) => onMouseDown(e, piece.id)"

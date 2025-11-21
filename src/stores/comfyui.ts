@@ -7,7 +7,7 @@ import {
   buildAssetUrls,
   getHistory as getComfyHistory,
 } from '@/services/comfy'
-import sam3Workflow from '@/assets/SAM3-WORKFLOW.json'
+import sam3Workflow from '@/assets/SAM3-WORKFLOW-NEW.json'
 
 export const useComfyUIStore = defineStore('comfyui', () => {
   const isConnected = ref(false)
@@ -97,14 +97,14 @@ export const useComfyUIStore = defineStore('comfyui', () => {
       // Clone the workflow
       const workflow = JSON.parse(JSON.stringify(sam3Workflow))
 
-      // Update Node 3: Load Image
-      if (workflow['3'] && workflow['3'].inputs) {
-        workflow['3'].inputs.image = options.imageFilename
+      // Update Node 1: Load Image
+      if (workflow['1'] && workflow['1'].inputs) {
+        workflow['1'].inputs.image = options.imageFilename
       }
 
-      // Update Node 4: SAM3 Segmentation
-      if (workflow['4'] && workflow['4'].inputs) {
-        workflow['4'].inputs.text_prompt = options.prompt
+      // Update Node 12: SAM3 Segmentation
+      if (workflow['12'] && workflow['12'].inputs) {
+        workflow['12'].inputs.prompt = options.prompt
       }
 
       // Execute
@@ -121,9 +121,9 @@ export const useComfyUIStore = defineStore('comfyui', () => {
       const images: string[] = []
       if (outputs) {
         const assets = buildAssetUrls(outputs)
-        // Filter for Node 5 (PreviewImage)
-        const node5Assets = assets.filter(a => a.node === '5' && a.type === 'image')
-        images.push(...node5Assets.map(a => a.url))
+        // Filter for Node 20 (SaveImage)
+        const nodeAssets = assets.filter(a => a.node === '20' && a.type === 'image')
+        images.push(...nodeAssets.map(a => a.url))
       }
 
       generatedImages.value = images

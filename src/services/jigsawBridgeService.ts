@@ -10,6 +10,8 @@ export interface JigsawPiece {
   y?: number
   width?: number
   height?: number
+  originalWidth?: number
+  originalHeight?: number
   croppedUrl?: string
   currentX?: number // Current position on board
   currentY?: number // Current position on board
